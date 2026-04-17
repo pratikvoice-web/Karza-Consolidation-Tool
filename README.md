@@ -15,7 +15,7 @@ An industrial-strength automation tool for consolidating Karza GST Transaction R
 - Windows PowerShell 5.1 (Standard on most PCs)
 
 ## 📖 How to Use
-1.  Download `Consolidate_Karza.bat`.
+1.  Download `Consolidate_Karza` zip file and extract the zip to retrieve the .bat file.
 2.  Place the `.bat` file in a folder containing your `.xlsx` Karza reports.
 3.  Double-click the file.
 4.  The script will scan the folder, process the data, and generate a `CONSOLIDATED_[PAN]_[Name].xlsx` file for each entity found.
