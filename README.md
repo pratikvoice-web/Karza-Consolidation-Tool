@@ -1,4 +1,4 @@
-# Karza GST Master Consolidator (v2026.003)
+# Karza GST Master Consolidator
 
 An industrial-strength automation tool for consolidating Karza GST Transaction Reports across multiple states and entities.
 
