@@ -1,31 +1,17 @@
 Changelog
 
 All notable changes to the Karza Deep-Consolidation Engine will be documented in this file.
-[v2026.004] - Matrix & Header Precision Update
+[v2026.005] - Infinite Deep Scan & Unregistered Entity Support
 🚀 Added
 
-    Dual Matrix Generation: The engine now automatically generates four detailed matrices instead of two. It produces distinct counterparty breakdowns for both Taxable Value and Invoice Value for all Customers and Suppliers.
+    Infinite Deep Scanning (UsedRange Bypass): The engine no longer relies on Excel's notoriously unreliable UsedRange.Rows.Count to determine the end of a month's data block. It now safely executes an infinite downward scan (capped at an extreme 100,000 rows) and breaks solely on a mathematical 50-row blank streak. This guarantees no internal or standard transactions are missed, regardless of formatting inconsistencies.
 
-        New sheets: Detailed_Customer_Taxable, Detailed_Customer_Invoice, Detailed_Supplier_Taxable, Detailed_Supplier_Invoice.
+    Unregistered/B2C Capture: Added a safety net for rows containing valid Taxable/Invoice values but missing a PAN (e.g., Unregistered B2B or B2C transactions). These are now assigned to an "UNREGISTERED" PAN bucket, ensuring they are fully captured and appropriately grouped in the matrix output instead of being completely skipped.
 
-🔄 Changed
-
-    Standardized Reporting Headers: Renamed the data blocks within the four main revenue sheets to strictly adhere to requested financial terminologies. Replaced generic generic references like "Gross - Supplier Taxable" with highly specific equivalents:
-
-        Gross Revenue - Taxable Value
-
-        Internal Purchases/Sales - Taxable Value
-
-        Net Revenue - Taxable Value
-
-        Gross Revenue - Invoice Value
-
-        Internal Purchases/Sales - Invoice Value
-
-        Net Revenue - Invoice Value
-
-    Progress Bar Synchronization: Updated the dynamic step counter to accurately reflect the 9 total generation steps (4 Revenue + 4 Matrices + 1 Glossary) while maintaining the flicker-free single-line UI.
+    Safe Type-Casting Logic: Data extraction cells are now wrapped in try/catch statements. If the Karza report contains a text string like NA, -, or #DIV/0! in a numeric column, the script will silently default to 0 rather than crashing the loop and dropping the row entirely.
 
 🐛 Fixed
 
-    Data Variable Unification: Resolved a potential data-loss conflict by unifying customer and supplier array collections into a single $matrixData array, preventing overwriting during the extraction phase and ensuring flawless matrix building for both sides of the ledger.
+    Data Exclusion on Blank PANs: Fixed a critical loop termination bug where the engine would abort processing an entire month block if it encountered a row with a blank PAN (such as a manually inserted empty row or an unregistered customer).
+
+    Global Name Overwrites: Hardened the $panToNameMap dictionary so that it explicitly prevents overwriting legitimate party names with the "UNREGISTERED" tag during the name backfilling process.
