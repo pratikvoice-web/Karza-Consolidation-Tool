@@ -1,17 +1,11 @@
 Changelog
 
 All notable changes to the Karza Deep-Consolidation Engine will be documented in this file.
-[v2026.005] - Infinite Deep Scan & Unregistered Entity Support
+[v2026.006] - GSTR1 Fallback Protocol & Dynamic Formatting
 🚀 Added
 
-    Infinite Deep Scanning (UsedRange Bypass): The engine no longer relies on Excel's notoriously unreliable UsedRange.Rows.Count to determine the end of a month's data block. It now safely executes an infinite downward scan (capped at an extreme 100,000 rows) and breaks solely on a mathematical 50-row blank streak. This guarantees no internal or standard transactions are missed, regardless of formatting inconsistencies.
+    GSTR1 Fallback System: Implemented intelligent cross-checking logic during the revenue extraction phase. If an entity has not filed GSTR-3B for a specific month (resulting in a 0 or blank in the GSTR1 vs 3B sheet), the engine will automatically parse the adjacent GSTR1 columns. If valid numbers exist in GSTR1, they will be utilized to prevent mathematically false negative netting when internal transactions are subtracted.
 
-    Unregistered/B2C Capture: Added a safety net for rows containing valid Taxable/Invoice values but missing a PAN (e.g., Unregistered B2B or B2C transactions). These are now assigned to an "UNREGISTERED" PAN bucket, ensuring they are fully captured and appropriately grouped in the matrix output instead of being completely skipped.
+    Dynamic Visual Formatting: When the GSTR1 Fallback is triggered for a specific month and state, the engine will automatically format the corresponding Gross and Net values in the generated output sheets with Italics and a Light Yellow background color. This ensures complete transparency for anyone auditing the final file.
 
-    Safe Type-Casting Logic: Data extraction cells are now wrapped in try/catch statements. If the Karza report contains a text string like NA, -, or #DIV/0! in a numeric column, the script will silently default to 0 rather than crashing the loop and dropping the row entirely.
-
-🐛 Fixed
-
-    Data Exclusion on Blank PANs: Fixed a critical loop termination bug where the engine would abort processing an entire month block if it encountered a row with a blank PAN (such as a manually inserted empty row or an unregistered customer).
-
-    Global Name Overwrites: Hardened the $panToNameMap dictionary so that it explicitly prevents overwriting legitimate party names with the "UNREGISTERED" tag during the name backfilling process.
+    Glossary Update: Added a new legend entry to the Audit_Glossary sheet explicitly explaining the Light Yellow/Italic formatting applied to the GSTR1 Fallback values.
