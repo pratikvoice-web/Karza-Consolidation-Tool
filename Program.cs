@@ -39,7 +39,8 @@ namespace KarzaConsolidator
                 return;
             }
 
-            AnsiConsole.MarkupLine($"[yellow][1/3][/] Initializing metadata index pass over {excelFiles.Count} workbooks...");
+            // ESCAPED BRACKETS FOR SPECTRE
+            AnsiConsole.MarkupLine($"[yellow][[1/3]][/] Initializing metadata index pass over {excelFiles.Count} workbooks...");
             var fileDataList = new List<FileMetadata>();
 
             foreach (var file in excelFiles)
@@ -72,7 +73,7 @@ namespace KarzaConsolidator
                 }
                 catch (Exception ex)
                 {
-                    AnsiConsole.MarkupLine($"[red]Error parsing profile metadata for file {Path.GetFileName(file)}: {ex.Message}[/]");
+                    AnsiConsole.MarkupLine($"[red]Error parsing profile metadata for file {Markup.Escape(Path.GetFileName(file))}: {Markup.Escape(ex.Message)}[/]");
                 }
             }
 
@@ -94,7 +95,7 @@ namespace KarzaConsolidator
                 string currentPan = items[0].PAN;
                 string currentName = items[0].TradeName;
 
-                AnsiConsole.Write(new Rule($"[green]ACTIVE ENTITY: {currentName} ({currentPan})[/]").LeftJustified());
+                AnsiConsole.Write(new Rule($"[green]ACTIVE ENTITY: {Markup.Escape(currentName)} ({Markup.Escape(currentPan)})[/]").LeftJustified());
 
                 var stateCounts = items.GroupBy(i => i.StateCode).ToDictionary(g => g.Key, g => g.Count());
                 var summaryData = new List<SummaryRecord>();
@@ -102,7 +103,8 @@ namespace KarzaConsolidator
                 var relatedPANs = new HashSet<string>();
                 var panToNameMap = new Dictionary<string, string>();
 
-                AnsiConsole.MarkupLine("[yellow][2/3][/] Running stream processing matrix layers...");
+                // ESCAPED BRACKETS FOR SPECTRE
+                AnsiConsole.MarkupLine("[yellow][[2/3]][/] Running stream processing matrix layers...");
 
                 int fileIndex = 0;
                 foreach (var item in items)
@@ -111,11 +113,10 @@ namespace KarzaConsolidator
                     string stateName = StateMap.ContainsKey(item.StateCode) ? StateMap[item.StateCode] : "Unknown";
                     string stHead = stateCounts[item.StateCode] > 1 ? $"{item.StateCode}-{stateName}-{item.Suffix}" : $"{item.StateCode}-{stateName}";
 
-                    AnsiConsole.MarkupLine($"      [gray]READING Layer ({fileIndex}/{items.Count}): {stHead}[/]");
+                    AnsiConsole.MarkupLine($"      [gray]READING Layer ({fileIndex}/{items.Count}): {Markup.Escape(stHead)}[/]");
 
                     using var wb = new XLWorkbook(item.FilePath);
 
-                    // Related Parties Extraction
                     foreach (var sheetName in new[] { "Related Party Sales - Monthly", "Related Party Purchases-Monthly" })
                     {
                         IXLWorksheet wsRP;
@@ -143,7 +144,6 @@ namespace KarzaConsolidator
                         }
                     }
 
-                    // GSTR Summary Base
                     var fileMonths = new Dictionary<string, MonthData>();
                     IXLWorksheet wsG;
                     if (wb.TryGetWorksheet("GSTR1 vs 3B", out wsG))
@@ -171,7 +171,6 @@ namespace KarzaConsolidator
                         }
                     }
 
-                    // Deep Matrix Processing Loop
                     foreach (var type in new[] { "Customer", "Supplier" })
                     {
                         IXLWorksheet wsM;
@@ -236,7 +235,6 @@ namespace KarzaConsolidator
                     }
                 }
 
-                // Global PAN Mapping Backfill
                 foreach (var md in matrixData)
                 {
                     md.IsRelatedParty = relatedPANs.Contains(md.PAN);
@@ -259,8 +257,8 @@ namespace KarzaConsolidator
                 double auditInternal = summaryData.Where(s => s.Type == "Customer").Sum(s => s.InternalTaxable);
                 AnsiConsole.MarkupLine($"      [white]Audit Verification Run:[/] Gross Revenue: [cyan]INR {auditGross:#,##0.00}[/] | Balanced Net: [green]INR {(auditGross - auditInternal):#,##0.00}[/]");
 
-                // --- PHASE 3: COMPILING WORKBOOK ---
-                AnsiConsole.MarkupLine("[yellow][3/3][/] Generating analytical reporting arrays...");
+                // ESCAPED BRACKETS FOR SPECTRE
+                AnsiConsole.MarkupLine("[yellow][[3/3]][/] Generating analytical reporting arrays...");
                 string outputName = $"CONSOLIDATED_{currentPan}_{currentName}.xlsx";
                 string outputPath = Path.Combine(currentFolder, outputName);
 
@@ -282,15 +280,15 @@ namespace KarzaConsolidator
                     foreach (var block in new[] { "Gross", "Internal", "Net" })
                     {
                         string headerLabel = block == "Gross" ? cfg.Labels[0] : block == "Internal" ? cfg.Labels[1] : cfg.Labels[2];
-                        ws.Cell(rowTracker, 1).SetValue(headerLabel).Style.Font.Bold = true;
-                        ws.Cell(rowTracker + 1, 1).SetValue("Month").Style.Font.Bold = true;
+                        ws.Cell(rowTracker, 1).SetValue(headerLabel).Style.Font.SetBold(true);
+                        ws.Cell(rowTracker + 1, 1).SetValue("Month").Style.Font.SetBold(true);
 
                         int colIdx = 2;
                         foreach (var st in uniqueStates)
                         {
-                            ws.Cell(rowTracker + 1, colIdx++).SetValue(st).Style.Font.Bold = true;
+                            ws.Cell(rowTracker + 1, colIdx++).SetValue(st).Style.Font.SetBold(true);
                         }
-                        ws.Cell(rowTracker + 1, colIdx).SetValue("Total").Style.Font.Bold = true;
+                        ws.Cell(rowTracker + 1, colIdx).SetValue("Total").Style.Font.SetBold(true);
 
                         int dataRow = rowTracker + 2;
                         foreach (var m in uniqueMonths)
@@ -334,7 +332,6 @@ namespace KarzaConsolidator
                     ws.Column(1).Style.NumberFormat.Format = "@";
                 }
 
-                // Matrix Compiling Layers
                 var matrixConfigs = new[]
                 {
                     new MatrixConfig("Detailed_Customer_Taxable", "Customer", "T"),
@@ -402,7 +399,6 @@ namespace KarzaConsolidator
                     ws.Column(2).Style.NumberFormat.Format = "@";
                 }
 
-                // Glossary Layer Configuration
                 var wsGlossary = outWb.Worksheets.Add("Audit_Glossary");
                 wsGlossary.Cell("A1").SetValue("Reporting Ledger Color Key").Style.Font.Bold = true;
                 wsGlossary.Cell("A3").Style.Fill.BackgroundColor = XLColor.FromHtml("#FFF2CC");
@@ -417,11 +413,12 @@ namespace KarzaConsolidator
                 try
                 {
                     outWb.SaveAs(outputPath);
-                    AnsiConsole.MarkupLine($"[green][SUCCESS][/] Structured ledger exported safely to: [yellow]{outputPath}[/]\n");
+                    // ESCAPED BRACKETS FOR SPECTRE
+                    AnsiConsole.MarkupLine($"[green][[SUCCESS]][/] Structured ledger exported safely to: [yellow]{Markup.Escape(outputPath)}[/]\n");
                 }
                 catch (Exception fileEx)
                 {
-                    AnsiConsole.MarkupLine($"[red]!! Structural write execution blocked. Ensure file is not locked by Excel: {fileEx.Message}[/]");
+                    AnsiConsole.MarkupLine($"[red]!! Structural write execution blocked. Ensure file is not locked by Excel: {Markup.Escape(fileEx.Message)}[/]");
                 }
             }
 
