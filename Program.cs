@@ -24,7 +24,7 @@ namespace KarzaConsolidator
 
         static void Main(string[] args)
         {
-            AnsiConsole.Write(new FigletText("KARZA CORE").Color(Color.Cyan));
+            AnsiConsole.Write(new FigletText("KARZA CORE").Color(Color.FromConsoleColor(ConsoleColor.Cyan)));
             string currentFolder = AppDomain.CurrentDomain.BaseDirectory;
 
             var excelFiles = Directory.GetFiles(currentFolder, "*.xlsx")
@@ -48,10 +48,10 @@ namespace KarzaConsolidator
                 {
                     using var workbook = new XLWorkbook(file);
                     var ws = workbook.Worksheet("Entity Profile");
-                    string b3 = ws.Cell("B3").GetText().Trim();
-                    string b4 = ws.Cell("B4").GetText().Trim();
-                    string b5 = ws.Cell("B5").GetText().Trim();
-                    string b6 = ws.Cell("B6").GetText().Trim();
+                    string b3 = ws.Cell("B3").Value.ToString().Trim();
+                    string b4 = ws.Cell("B4").Value.ToString().Trim();
+                    string b5 = ws.Cell("B5").Value.ToString().Trim();
+                    string b6 = ws.Cell("B6").Value.ToString().Trim();
 
                     string pan = b5;
                     if (string.IsNullOrEmpty(pan) || pan.Length != 10)
@@ -94,7 +94,7 @@ namespace KarzaConsolidator
                 string currentPan = items[0].PAN;
                 string currentName = items[0].TradeName;
 
-                AnsiConsole.Write(new Rule($"[green]ACTIVE ENTITY: {currentName} ({currentPan})[/]").LeftAligned());
+                AnsiConsole.Write(new Rule($"[green]ACTIVE ENTITY: {currentName} ({currentPan})[/]").LeftJustified());
 
                 var stateCounts = items.GroupBy(i => i.StateCode).ToDictionary(g => g.Key, g => g.Count());
                 var summaryData = new List<SummaryRecord>();
@@ -118,7 +118,8 @@ namespace KarzaConsolidator
                     // Related Parties Extraction
                     foreach (var sheetName in new[] { "Related Party Sales - Monthly", "Related Party Purchases-Monthly" })
                     {
-                        if (wb.TryGetWorksheet(sheetName, out var wsRP))
+                        IXLWorksheet wsRP;
+                        if (wb.TryGetWorksheet(sheetName, out wsRP))
                         {
                             int rpMax = wsRP.LastRowUsed()?.RowNumber() ?? 100;
                             for (int c = 2; c <= 200; c += 8)
@@ -126,7 +127,7 @@ namespace KarzaConsolidator
                                 int blankStreak = 0;
                                 for (int r = 4; r <= rpMax + 50; r++)
                                 {
-                                    string rpp = wsRP.Cell(r, c).GetText().Trim();
+                                    string rpp = wsRP.Cell(r, c).Value.ToString().Trim();
                                     if (rpp.Length == 10)
                                     {
                                         relatedPANs.Add(rpp);
@@ -144,12 +145,13 @@ namespace KarzaConsolidator
 
                     // GSTR Summary Base
                     var fileMonths = new Dictionary<string, MonthData>();
-                    if (wb.TryGetWorksheet("GSTR1 vs 3B", out var wsG))
+                    IXLWorksheet wsG;
+                    if (wb.TryGetWorksheet("GSTR1 vs 3B", out wsG))
                     {
                         int gMax = wsG.LastRowUsed()?.RowNumber() ?? 50;
                         for (int i = 4; i <= gMax + 20; i++)
                         {
-                            string m = wsG.Cell(i, 1).GetText().Trim();
+                            string m = wsG.Cell(i, 1).Value.ToString().Trim();
                             if (Regex.IsMatch(m, @"^[A-Za-z]{3}-\d{2}$"))
                             {
                                 double gi1 = SafeDouble(wsG.Cell(i, 2).Value);
@@ -172,20 +174,21 @@ namespace KarzaConsolidator
                     // Deep Matrix Processing Loop
                     foreach (var type in new[] { "Customer", "Supplier" })
                     {
-                        if (wb.TryGetWorksheet($"{type} Wise - Monthly Data", out var wsM))
+                        IXLWorksheet wsM;
+                        if (wb.TryGetWorksheet($"{type} Wise - Monthly Data", out wsM))
                         {
                             int mMax = wsM.LastRowUsed()?.RowNumber() ?? 1000;
                             for (int c = 1; c <= 400; c += 9)
                             {
-                                string m = wsM.Cell(2, c).GetText().Trim();
+                                string m = wsM.Cell(2, c).Value.ToString().Trim();
                                 if (!fileMonths.ContainsKey(m)) continue;
 
                                 int blankStreak = 0;
                                 for (int r = 4; r <= mMax + 100; r++)
                                 {
-                                    string serial = wsM.Cell(r, c).GetText().Trim();
-                                    string cp = wsM.Cell(r, c + 1).GetText().Trim();
-                                    string cn = wsM.Cell(r, c + 2).GetText().Trim();
+                                    string serial = wsM.Cell(r, c).Value.ToString().Trim();
+                                    string cp = wsM.Cell(r, c + 1).Value.ToString().Trim();
+                                    string cn = wsM.Cell(r, c + 2).Value.ToString().Trim();
 
                                     if (string.IsNullOrEmpty(serial) && string.IsNullOrEmpty(cp) && string.IsNullOrEmpty(cn))
                                     {
@@ -279,20 +282,20 @@ namespace KarzaConsolidator
                     foreach (var block in new[] { "Gross", "Internal", "Net" })
                     {
                         string headerLabel = block == "Gross" ? cfg.Labels[0] : block == "Internal" ? cfg.Labels[1] : cfg.Labels[2];
-                        ws.Cell(rowTracker, 1).SetValue(headerLabel).Style.Font.SetBold(true);
-                        ws.Cell(rowTracker + 1, 1).SetValue("Month").Style.Font.SetBold(true);
+                        ws.Cell(rowTracker, 1).SetValue(headerLabel).Style.Font.Bold = true;
+                        ws.Cell(rowTracker + 1, 1).SetValue("Month").Style.Font.Bold = true;
 
                         int colIdx = 2;
                         foreach (var st in uniqueStates)
                         {
-                            ws.Cell(rowTracker + 1, colIdx++).SetValue(st).Style.Font.SetBold(true);
+                            ws.Cell(rowTracker + 1, colIdx++).SetValue(st).Style.Font.Bold = true;
                         }
-                        ws.Cell(rowTracker + 1, colIdx).SetValue("Total").Style.Font.SetBold(true);
+                        ws.Cell(rowTracker + 1, colIdx).SetValue("Total").Style.Font.Bold = true;
 
                         int dataRow = rowTracker + 2;
                         foreach (var m in uniqueMonths)
                         {
-                            ws.Cell(dataRow, 1).SetValue(m).Style.NumberFormat.SetFormat("@");
+                            ws.Cell(dataRow, 1).SetValue(m).Style.NumberFormat.Format = "@";
                             colIdx = 2;
                             bool rowContainsFallback = false;
 
@@ -315,20 +318,20 @@ namespace KarzaConsolidator
 
                                 if (rowContainsFallback && block != "Internal" && cellValue > 0)
                                 {
-                                    targetCell.Style.Font.SetItalic(true);
-                                    targetCell.Style.Fill.SetBackgroundColor(XLColor.FromHtml("#FFF2CC"));
+                                    targetCell.Style.Font.Italic = true;
+                                    targetCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#FFF2CC");
                                 }
                             }
 
                             string lastColLetter = GetColLetter(colIdx - 1);
-                            ws.Cell(dataRow, colIdx).SetFormulaA1($"=SUM(B{dataRow}:{lastColLetter}{dataRow})");
+                            ws.Cell(dataRow, colIdx).FormulaA1 = $"=SUM(B{dataRow}:{lastColLetter}{dataRow})";
                             dataRow++;
                         }
                         rowTracker = dataRow + 2;
                     }
                     ws.Columns().AdjustToContents();
-                    ws.RangeUsed().Style.NumberFormat.SetFormat("#,##0.00");
-                    ws.Column(1).Style.NumberFormat.SetFormat("@");
+                    ws.RangeUsed().Style.NumberFormat.Format = "#,##0.00";
+                    ws.Column(1).Style.NumberFormat.Format = "@";
                 }
 
                 // Matrix Compiling Layers
@@ -343,15 +346,15 @@ namespace KarzaConsolidator
                 foreach (var mCfg in matrixConfigs)
                 {
                     var ws = outWb.Worksheets.Add(mCfg.SheetName);
-                    ws.Cell(1, 1).SetValue("Party / State").Style.Font.SetBold(true);
-                    ws.Cell(1, 2).SetValue("PAN").Style.Font.SetBold(true);
+                    ws.Cell(1, 1).SetValue("Party / State").Style.Font.Bold = true;
+                    ws.Cell(1, 2).SetValue("PAN").Style.Font.Bold = true;
 
                     int colIdx = 3;
                     foreach (var m in uniqueMonths)
                     {
-                        ws.Cell(1, colIdx++).SetValue(m).Style.Font.SetBold(true);
+                        ws.Cell(1, colIdx++).SetValue(m).Style.Font.Bold = true;
                     }
-                    ws.Cell(1, colIdx).SetValue("Total").Style.Font.SetBold(true);
+                    ws.Cell(1, colIdx).SetValue("Total").Style.Font.Bold = true;
 
                     int dataRow = 2;
                     var groupedByPan = matrixData.Where(m => m.Type == mCfg.TypeTarget).GroupBy(m => m.PAN).ToList();
@@ -361,9 +364,9 @@ namespace KarzaConsolidator
                         string firstPartyName = panGroup.First().Name;
                         bool isRp = panGroup.First().IsRelatedParty;
 
-                        ws.Cell(dataRow, 1).SetValue(firstPartyName).Style.Font.SetBold(true);
+                        ws.Cell(dataRow, 1).SetValue(firstPartyName).Style.Font.Bold = true;
                         ws.Cell(dataRow, 2).SetValue(panGroup.Key).Style.Font.SetBold(true);
-                        ws.Row(dataRow).Style.Fill.SetBackgroundColor(isRp ? XLColor.FromHtml("#FFF2CC") : XLColor.FromHtml("#E1E1E1"));
+                        ws.Row(dataRow).Style.Fill.BackgroundColor = isRp ? XLColor.FromHtml("#FFF2CC") : XLColor.FromHtml("#E1E1E1");
 
                         colIdx = 3;
                         foreach (var m in uniqueMonths)
@@ -372,7 +375,7 @@ namespace KarzaConsolidator
                             if (v > 0) ws.Cell(dataRow, colIdx).SetValue(v);
                             colIdx++;
                         }
-                        ws.Cell(dataRow, colIdx).SetFormulaA1($"=SUM(C{dataRow}:{GetColLetter(colIdx - 1)}{dataRow})");
+                        ws.Cell(dataRow, colIdx).FormulaA1 = $"=SUM(C{dataRow}:{GetColLetter(colIdx - 1)}{dataRow})";
                         
                         int parentRow = dataRow;
                         dataRow++;
@@ -388,27 +391,28 @@ namespace KarzaConsolidator
                                 if (v > 0) ws.Cell(dataRow, colIdx).SetValue(v);
                                 colIdx++;
                             }
-                            ws.Cell(dataRow, colIdx).SetFormulaA1($"=SUM(C{dataRow}:{GetColLetter(colIdx - 1)}{dataRow})");
+                            ws.Cell(dataRow, colIdx).FormulaA1 = $"=SUM(C{dataRow}:{GetColLetter(colIdx - 1)}{dataRow})";
                             dataRow++;
                         }
                         ws.Rows(parentRow + 1, dataRow - 1).Group();
                     }
                     ws.Columns().AdjustToContents();
-                    ws.RangeUsed().Style.NumberFormat.SetFormat("#,##0.00");
-                    ws.Column(1).Style.NumberFormat.SetFormat("@");
-                    ws.Column(2).Style.NumberFormat.SetFormat("@");
+                    ws.RangeUsed().Style.NumberFormat.Format = "#,##0.00";
+                    ws.Column(1).Style.NumberFormat.Format = "@";
+                    ws.Column(2).Style.NumberFormat.Format = "@";
                 }
 
                 // Glossary Layer Configuration
-                var wsG = outWb.Worksheets.Add("Audit_Glossary");
-                wsG.Cell("A1").SetValue("Reporting Ledger Color Key").Style.Font.SetBold(true);
-                wsG.Cell("A3").Style.Fill.SetBackgroundColor(XLColor.FromHtml("#FFF2CC"));
-                wsG.Cell("B3").SetValue("Related Party Configuration / Subledger Identifiers");
-                wsG.Cell("A4").Style.Fill.SetBackgroundColor(XLColor.FromHtml("#E1E1E1"));
-                wsG.Cell("B4").SetValue("Third-Party Verified Operational Vectors");
-                wsG.Cell("A5").Style.Fill.SetBackgroundColor(XLColor.FromHtml("#FFF2CC")).Font.SetItalic(true);
-                wsG.Cell("B5").SetValue("GSTR1 Operational Fallback Values (Triggered when explicit GSTR3B data is filed as missing or 0)");
-                wsG.Columns().AdjustToContents();
+                var wsGlossary = outWb.Worksheets.Add("Audit_Glossary");
+                wsGlossary.Cell("A1").SetValue("Reporting Ledger Color Key").Style.Font.Bold = true;
+                wsGlossary.Cell("A3").Style.Fill.BackgroundColor = XLColor.FromHtml("#FFF2CC");
+                wsGlossary.Cell("B3").SetValue("Related Party Configuration / Subledger Identifiers");
+                wsGlossary.Cell("A4").Style.Fill.BackgroundColor = XLColor.FromHtml("#E1E1E1");
+                wsGlossary.Cell("B4").SetValue("Third-Party Verified Operational Vectors");
+                wsGlossary.Cell("A5").Style.Fill.BackgroundColor = XLColor.FromHtml("#FFF2CC");
+                wsGlossary.Cell("A5").Style.Font.Italic = true;
+                wsGlossary.Cell("B5").SetValue("GSTR1 Operational Fallback Values (Triggered when explicit GSTR3B data is filed as missing or 0)");
+                wsGlossary.Columns().AdjustToContents();
 
                 try
                 {
@@ -430,11 +434,8 @@ namespace KarzaConsolidator
         {
             if (value.IsBlank) return 0;
             if (value.IsNumber) return value.GetNumber();
-            if (value.IsUnified)
-            {
-                string txt = value.GetText().Trim();
-                if (double.TryParse(txt, out double res)) return res;
-            }
+            string txt = value.ToString().Trim();
+            if (double.TryParse(txt, out double res)) return res;
             return 0;
         }
 
