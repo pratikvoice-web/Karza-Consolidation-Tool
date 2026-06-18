@@ -13,7 +13,7 @@
 
         <Border Grid.Row="0" Background="#0F172A" CornerRadius="6" Padding="20" Margin="0,0,0,20">
             <StackPanel>
-                <TextBlock Text="KARZA DEEP CONSOLIDATION ENGINE v2026.06" Foreground="#38BDF8" FontSize="18" FontWeight="Bold" Tracking="1"/>
+                <TextBlock Text="KARZA DEEP CONSOLIDATION ENGINE v2026.06" Foreground="#38BDF8" FontSize="18" FontWeight="Bold"/>
                 <TextBlock Text="Enterprise Data Aggregation, Subledger Matrixing &amp; Revenue Reconciliation Engine" Foreground="#94A3B8" FontSize="12" Margin="0,6,0,0"/>
             </StackPanel>
         </Border>
