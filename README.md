@@ -19,7 +19,7 @@ An industrial-strength automation tool for consolidating Karza GST Transaction R
 2.  Run the file and in the app window select the folder containing your `.xlsx` Karza reports.
 3.  Also select the desired destination folder for the output file.
 4.  Click on `Execute`.
-5.  The app will scan the folder, process the data, and generate a `CONSOLIDATED_[PAN]_[Name].xlsx` file for each entity found in the destination folder.
+5.  The app will scan the folder, process the data, and generate a `CONSOLIDATED_[PAN]_[Name].xlsx` file in the destination folder for each entity found in the source folder.
 
 
 ## 📖 How to Use (Batch File vesion - Command Line Interface)
