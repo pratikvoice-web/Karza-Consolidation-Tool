@@ -1,0 +1,483 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using System.Windows;
+using ClosedXML.Excel;
+using Microsoft.Win32;
+
+namespace KarzaConsolidator
+{
+    public partial class MainWindow : Window
+    {
+        private static readonly Dictionary<string, string> StateMap = new()
+        {
+            { "01", "J&K" }, { "02", "HP" }, { "03", "Punjab" }, { "04", "Chandigarh" }, { "05", "Uttarakhand" },
+            { "06", "Haryana" }, { "07", "Delhi" }, { "08", "Rajasthan" }, { "09", "UP" }, { "10", "Bihar" },
+            { "11", "Sikkim" }, { "12", "Arunachal" }, { "13", "Nagaland" }, { "14", "Manipur" }, { "15", "Mizoram" },
+            { "16", "Tripura" }, { "17", "Meghalaya" }, { "18", "Assam" }, { "19", "WB" }, { "20", "Jharkhand" },
+            { "21", "Odisha" }, { "22", "Chhattisgarh" }, { "23", "MP" }, { "24", "Gujarat" }, { "26", "DNHDD" },
+            { "27", "Maharashtra" }, { "29", "Karnataka" }, { "30", "Goa" }, { "31", "Lakshadweep" }, { "32", "Kerala" },
+            { "33", "TN" }, { "34", "Puducherry" }, { "35", "A&N Islands" }, { "36", "Telangana" }, { "37", "Andhra Pradesh" },
+            { "38", "Ladakh" }, { "97", "UN Bodies" }, { "99", "Foreign Entities" }
+        };
+
+        public MainWindow()
+        {
+            InitializeComponent();
+            string runningFolder = AppDomain.CurrentDomain.BaseDirectory;
+            TxtSourcePath.Text = runningFolder;
+            TxtDestPath.Text = runningFolder;
+            LogLine("System Initialization Status Matrix Configured. Ready.");
+        }
+
+        private void BtnBrowseSource_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new OpenFolderDialog { InitialDirectory = TxtSourcePath.Text };
+            if (dialog.ShowDialog() == true) TxtSourcePath.Text = dialog.FolderName;
+        }
+
+        private void BtnBrowseDest_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new OpenFolderDialog { InitialDirectory = TxtDestPath.Text };
+            if (dialog.ShowDialog() == true) TxtDestPath.Text = dialog.FolderName;
+        }
+
+        private void LogLine(string message)
+        {
+            TxtLog.AppendText($"[{DateTime.Now:HH:mm:ss}] {message}\r\n");
+            TxtLog.ScrollToEnd();
+        }
+
+        private async void BtnRun_Click(object sender, RoutedEventArgs e)
+        {
+            string sourceFolder = TxtSourcePath.Text.Trim();
+            string destFolder = TxtDestPath.Text.Trim();
+
+            if (!Directory.Exists(sourceFolder))
+            {
+                MessageBox.Show("Source directory lookup error. Path is invalid.", "Execution Blocked", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            BtnRun.IsEnabled = false;
+            BtnBrowseSource.IsEnabled = false;
+            BtnBrowseDest.IsEnabled = false;
+            BtnOpenFolder.Visibility = Visibility.Collapsed;
+            TxtLog.Clear();
+
+            ProgressExtract.Value = 0;
+            ProgressCompile.Value = 0;
+
+            var progressReporter = new Progress<UiProgressReport>(report =>
+            {
+                if (report.Type == "LOG") LogLine(report.StatusText);
+                else if (report.Type == "EXTRACT")
+                {
+                    ProgressExtract.Value = report.Value;
+                    LblExtractStatus.Text = report.StatusText;
+                }
+                else if (report.Type == "COMPILE")
+                {
+                    ProgressCompile.Value = report.Value;
+                    LblCompileStatus.Text = report.StatusText;
+                }
+            });
+
+            try
+            {
+                await Task.Run(() => ProcessingEngine(sourceFolder, destFolder, progressReporter));
+                LogLine("SUCCESS: All Operations Cleared safely.");
+                BtnOpenFolder.Visibility = Visibility.Visible;
+            }
+            catch (Exception ex)
+            {
+                LogLine($"FATAL SYSTEM EXCEPTION: {ex.Message}");
+                MessageBox.Show($"Core engine halted operations: {ex.Message}", "Processing Failure", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                BtnRun.IsEnabled = true;
+                BtnBrowseSource.IsEnabled = true;
+                BtnBrowseDest.IsEnabled = true;
+            }
+        }
+
+        private void ProcessingEngine(string inputFolder, string outputFolder, IProgress<UiProgressReport> prog)
+        {
+            prog.Report(new UiProgressReport("LOG", 0, "Initializing metadata index scan pass..."));
+
+            var excelFiles = Directory.GetFiles(inputFolder, "*.xlsx")
+                .Where(f => !Path.GetFileName(f).StartsWith("CONSOLIDATED_"))
+                .ToList();
+
+            if (excelFiles.Count == 0)
+                throw new Exception("No target Karza source ledger files discovered inside target directory.");
+
+            var fileDataList = new List<FileMetadata>();
+            foreach (var file in excelFiles)
+            {
+                using var workbook = new XLWorkbook(file);
+                var ws = workbook.Worksheet("Entity Profile");
+                string b3 = ws.Cell("B3").Value.ToString().Trim();
+                string b4 = ws.Cell("B4").Value.ToString().Trim();
+                string b5 = ws.Cell("B5").Value.ToString().Trim();
+                string b6 = ws.Cell("B6").Value.ToString().Trim();
+
+                string pan = b5;
+                if (string.IsNullOrEmpty(pan) || pan.Length != 10)
+                {
+                    if (b6.Length >= 15) pan = b6.Substring(2, 10);
+                }
+                if (string.IsNullOrEmpty(pan)) pan = "UNKNOWNPAN";
+
+                string name = b4;
+                if (string.IsNullOrWhiteSpace(name) || name == "-" || name == "NA") name = b3;
+                if (string.IsNullOrWhiteSpace(name)) name = "Unknown_Entity";
+                string safeName = Regex.Replace(name, @"[\\/:*?""<>|]", "_");
+
+                string stateCode = b6.Length >= 15 ? b6.Substring(0, 2) : "00";
+                string suffix = b6.Length >= 15 ? b6.Substring(b6.Length - 3, 3) : "XXX";
+
+                fileDataList.Add(new FileMetadata(file, pan, safeName, b6, stateCode, suffix));
+            }
+
+            var entityGroups = fileDataList.GroupBy(f => 
+                (f.PAN.Length == 10 && char.ToUpper(f.PAN[3]) == 'P') ? $"{f.PAN}_{f.TradeName}" : f.PAN
+            ).ToDictionary(g => g.Key, g => g.ToList());
+
+            foreach (var group in entityGroups)
+            {
+                var items = group.Value;
+                string currentPan = items[0].PAN;
+                string currentName = items[0].TradeName;
+
+                prog.Report(new UiProgressReport("LOG", 0, $"Processing Profile Boundaries for Entity: {currentName}"));
+
+                var stateCounts = items.GroupBy(i => i.StateCode).ToDictionary(g => g.Key, g => g.Count());
+                var summaryData = new List<SummaryRecord>();
+                var matrixData = new List<MatrixRecord>();
+                var relatedPANs = new HashSet<string>();
+                var panToNameMap = new Dictionary<string, string>();
+
+                int fileIndex = 0;
+                foreach (var item in items)
+                {
+                    fileIndex++;
+                    string stateName = StateMap.ContainsKey(item.StateCode) ? StateMap[item.StateCode] : "Unknown";
+                    string stHead = stateCounts[item.StateCode] > 1 ? $"{item.StateCode}-{stateName}-{item.Suffix}" : $"{item.StateCode}-{stateName}";
+
+                    double pct = ((double)fileIndex / items.Count) * 100;
+                    prog.Report(new UiProgressReport("EXTRACT", pct, $"Extracting Layer ({fileIndex}/{items.Count}): {stHead}"));
+
+                    using var wb = new XLWorkbook(item.FilePath);
+
+                    foreach (var sheetName in new[] { "Related Party Sales - Monthly", "Related Party Purchases-Monthly" })
+                    {
+                        if (wb.TryGetWorksheet(sheetName, out IXLWorksheet wsRP))
+                        {
+                            int rpMax = wsRP.LastRowUsed()?.RowNumber() ?? 100;
+                            for (int c = 2; c <= 200; c += 8)
+                            {
+                                int blankStreak = 0;
+                                for (int r = 4; r <= rpMax + 50; r++)
+                                {
+                                    string rpp = wsRP.Cell(r, c).Value.ToString().Trim();
+                                    if (rpp.Length == 10) { relatedPANs.Add(rpp); blankStreak = 0; }
+                                    else if (++blankStreak > 50) break;
+                                }
+                            }
+                        }
+                    }
+
+                    var fileMonths = new Dictionary<string, MonthData>();
+                    if (wb.TryGetWorksheet("GSTR1 vs 3B", out IXLWorksheet wsG))
+                    {
+                        int gMax = wsG.LastRowUsed()?.RowNumber() ?? 50;
+                        for (int i = 4; i <= gMax + 20; i++)
+                        {
+                            string m = wsG.Cell(i, 1).Value.ToString().Trim();
+                            if (Regex.IsMatch(m, @"^[A-Za-z]{3}-\d{2}$"))
+                            {
+                                double gi1 = SafeDouble(wsG.Cell(i, 2).Value);
+                                double gt1 = SafeDouble(wsG.Cell(i, 3).Value);
+                                double gi3b = SafeDouble(wsG.Cell(i, 4).Value);
+                                double gt3b = SafeDouble(wsG.Cell(i, 5).Value);
+
+                                bool fallback = false;
+                                if (gt3b == 0 && gt1 > 0) { gt3b = gt1; fallback = true; }
+                                if (gi3b == 0 && gi1 > 0) { gi3b = gi1; fallback = true; }
+
+                                fileMonths[m] = new MonthData(gt3b, gi3b, fallback);
+                            }
+                        }
+                    }
+
+                    foreach (var type in new[] { "Customer", "Supplier" })
+                    {
+                        if (wb.TryGetWorksheet($"{type} Wise - Monthly Data", out IXLWorksheet wsM))
+                        {
+                            int mMax = wsM.LastRowUsed()?.RowNumber() ?? 1000;
+                            for (int c = 1; c <= 400; c += 9)
+                            {
+                                string m = wsM.Cell(2, c).Value.ToString().Trim();
+                                if (!fileMonths.ContainsKey(m)) continue;
+
+                                int blankStreak = 0;
+                                for (int r = 4; r <= mMax + 100; r++)
+                                {
+                                    string serial = wsM.Cell(r, c).Value.ToString().Trim();
+                                    string cp = wsM.Cell(r, c + 1).Value.ToString().Trim();
+                                    string cn = wsM.Cell(r, c + 2).Value.ToString().Trim();
+
+                                    if (string.IsNullOrEmpty(serial) && string.IsNullOrEmpty(cp) && string.IsNullOrEmpty(cn))
+                                    {
+                                        if (++blankStreak > 50) break;
+                                        continue;
+                                    }
+                                    blankStreak = 0;
+
+                                    if (serial.Contains("Total", StringComparison.OrdinalIgnoreCase) ||
+                                        cp.Contains("Total", StringComparison.OrdinalIgnoreCase) ||
+                                        cn.Contains("Total", StringComparison.OrdinalIgnoreCase)) continue;
+
+                                    if (string.IsNullOrEmpty(cp)) cp = "UNREGISTERED";
+                                    if (cp != "UNREGISTERED" && !string.IsNullOrWhiteSpace(cn) && cn != "-") panToNameMap[cp] = cn;
+
+                                    double vt = SafeDouble(wsM.Cell(r, c + 3).Value);
+                                    double vi = SafeDouble(wsM.Cell(r, c + 5).Value);
+
+                                    if (vt == 0 && vi == 0) continue;
+
+                                    if (cp == currentPan)
+                                    {
+                                        if (type == "Customer") { fileMonths[m].InternalTaxableCustomer += vt; fileMonths[m].InternalInvoiceCustomer += vi; }
+                                        else { fileMonths[m].InternalTaxableSupplier += vt; fileMonths[m].InternalInvoiceSupplier += vi; }
+                                    }
+                                    else matrixData.Add(new MatrixRecord(cn, cp, stHead, m, vt, vi, type));
+                                }
+                            }
+                        }
+                    }
+
+                    foreach (var km in fileMonths)
+                    {
+                        var d = km.Value;
+                        summaryData.Add(new SummaryRecord(km.Key, stHead, "Customer", d.GrossTaxable, d.GrossInvoice, d.InternalTaxableCustomer, d.InternalInvoiceCustomer, d.IsFallback));
+                        summaryData.Add(new SummaryRecord(km.Key, stHead, "Supplier", d.GrossTaxable, d.GrossInvoice, d.InternalTaxableSupplier, d.InternalInvoiceSupplier, d.IsFallback));
+                    }
+                }
+                prog.Report(new UiProgressReport("EXTRACT", 100, "Ledger extraction pass completed safely."));
+
+                foreach (var md in matrixData)
+                {
+                    md.IsRelatedParty = relatedPANs.Contains(md.PAN);
+                    if (string.IsNullOrWhiteSpace(md.Name) || md.Name == "-")
+                    {
+                        if (panToNameMap.ContainsKey(md.PAN)) md.Name = panToNameMap[md.PAN];
+                        else md.Name = md.PAN == "UNREGISTERED" ? "Consumer / Unregistered Sales" : "Unknown Counterparty";
+                    }
+                }
+
+                var uniqueMonths = summaryData.Select(s => s.Month).Concat(matrixData.Select(m => m.Month)).Distinct().Where(m => !string.IsNullOrEmpty(m)).OrderBy(m => DateTime.ParseExact(m, "MMM-yy", System.Globalization.CultureInfo.InvariantCulture)).ToList();
+                var uniqueStates = summaryData.Select(s => s.State).Distinct().OrderBy(s => s).ToList();
+
+                double auditGross = summaryData.Where(s => s.Type == "Customer").Sum(s => s.GrossTaxable);
+                double auditInternal = summaryData.Where(s => s.Type == "Customer").Sum(s => s.InternalTaxable);
+                prog.Report(new UiProgressReport("LOG", 0, $"Audit Verification: Gross Turnover Verified: INR {auditGross:#,##0.00} | Net: INR {(auditGross - auditInternal):#,##0.00}"));
+
+                // --- GENERATION SECTOR ---
+                string outputName = $"CONSOLIDATED_{currentPan}_{currentName}.xlsx";
+                string outputPath = Path.Combine(outputFolder, outputName);
+                using var outWb = new XLWorkbook();
+
+                var configurations = new[]
+                {
+                    new NetConfig("Tax. Value - Internal Sales", "Customer", true, new[] { "Gross Revenue - Taxable Value", "Internal Sales - Taxable Value", "Net Revenue - Taxable Value" }),
+                    new NetConfig("Inv. Value - Internal Sales", "Customer", false, new[] { "Gross Revenue - Invoice Value", "Internal Sales - Invoice Value", "Net Revenue - Invoice Value" }),
+                    new NetConfig("Tax. Value - Internal Purchases", "Supplier", true, new[] { "Gross Revenue - Taxable Value", "Internal Purchases - Taxable Value", "Net Revenue - Taxable Value" }),
+                    new NetConfig("Inv. Value - Internal Purchases", "Supplier", false, new[] { "Gross Revenue - Invoice Value", "Internal Purchases - Invoice Value", "Net Revenue - Invoice Value" })
+                };
+
+                int compStep = 0;
+                foreach (var cfg in configurations)
+                {
+                    prog.Report(new UiProgressReport("COMPILE", ((double)++compStep / 9) * 100, $"Writing Array Map: {cfg.SheetName}"));
+                    var ws = outWb.Worksheets.Add(cfg.SheetName);
+                    int rowTracker = 1;
+
+                    foreach (var block in new[] { "Gross", "Internal", "Net" })
+                    {
+                        string headerLabel = block == "Gross" ? cfg.Labels[0] : block == "Internal" ? cfg.Labels[1] : cfg.Labels[2];
+                        ws.Cell(rowTracker, 1).SetValue(headerLabel).Style.Font.SetBold(true);
+                        ws.Cell(rowTracker + 1, 1).SetValue("Month").Style.Font.SetBold(true);
+
+                        int colIdx = 2;
+                        foreach (var st in uniqueStates) ws.Cell(rowTracker + 1, colIdx++).SetValue(st).Style.Font.SetBold(true);
+                        ws.Cell(rowTracker + 1, colIdx).SetValue("Total").Style.Font.SetBold(true);
+
+                        int dataRow = rowTracker + 2;
+                        foreach (var m in uniqueMonths)
+                        {
+                            ws.Cell(dataRow, 1).SetValue(m).Style.NumberFormat.Format = "@";
+                            colIdx = 2;
+                            bool rowContainsFallback = false;
+
+                            foreach (var st in uniqueStates)
+                            {
+                                var matches = summaryData.Where(s => s.Month == m && s.State == st && s.Type == cfg.TypeTarget).ToList();
+                                double cellValue = 0;
+
+                                if (matches.Count > 0)
+                                {
+                                    if (block == "Gross") cellValue = matches.Sum(s => cfg.IsTaxable ? s.GrossTaxable : s.GrossInvoice);
+                                    else if (block == "Internal") cellValue = matches.Sum(s => cfg.IsTaxable ? s.InternalTaxable : s.InternalInvoice);
+                                    else cellValue = matches.Sum(s => cfg.IsTaxable ? (s.GrossTaxable - s.InternalTaxable) : (s.GrossInvoice - s.InternalInvoice));
+
+                                    if (matches.Any(s => s.IsFallback)) rowContainsFallback = true;
+                                }
+
+                                var targetCell = ws.Cell(dataRow, colIdx++);
+                                targetCell.SetValue(cellValue);
+
+                                if (rowContainsFallback && block != "Internal" && cellValue > 0)
+                                {
+                                    targetCell.Style.Font.Italic = true;
+                                    targetCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#FFF2CC");
+                                }
+                            }
+                            ws.Cell(dataRow, colIdx).FormulaA1 = $"=SUM(B{dataRow}:{GetColLetter(colIdx - 1)}{dataRow})";
+                            dataRow++;
+                        }
+                        rowTracker = dataRow + 2;
+                    }
+                    ws.Columns().AdjustToContents();
+                    ws.RangeUsed().Style.NumberFormat.Format = "#,##0.00";
+                    ws.Column(1).Style.NumberFormat.Format = "@";
+                }
+
+                var matrixConfigs = new[]
+                {
+                    new MatrixConfig("Detailed_Customer_Taxable", "Customer", "T"),
+                    new MatrixConfig("Detailed_Customer_Invoice", "Customer", "I"),
+                    new MatrixConfig("Detailed_Supplier_Taxable", "Supplier", "T"),
+                    new MatrixConfig("Detailed_Supplier_Invoice", "Supplier", "I")
+                };
+
+                foreach (var mCfg in matrixConfigs)
+                {
+                    prog.Report(new UiProgressReport("COMPILE", ((double)++compStep / 9) * 100, $"Writing Subledger Layout: {mCfg.SheetName}"));
+                    var ws = outWb.Worksheets.Add(mCfg.SheetName);
+                    ws.Cell(1, 1).SetValue("Party / State").Style.Font.SetBold(true);
+                    ws.Cell(1, 2).SetValue("PAN").Style.Font.SetBold(true);
+
+                    int colIdx = 3;
+                    foreach (var m in uniqueMonths) ws.Cell(1, colIdx++).SetValue(m).Style.Font.SetBold(true);
+                    ws.Cell(1, colIdx).SetValue("Total").Style.Font.SetBold(true);
+
+                    int dataRow = 2;
+                    var groupedByPan = matrixData.Where(m => m.Type == mCfg.TypeTarget).GroupBy(m => m.PAN).ToList();
+
+                    foreach (var panGroup in groupedByPan)
+                    {
+                        string firstPartyName = panGroup.First().Name;
+                        bool isRp = panGroup.First().IsRelatedParty;
+
+                        ws.Cell(dataRow, 1).SetValue(firstPartyName).Style.Font.SetBold(true);
+                        ws.Cell(dataRow, 2).SetValue(panGroup.Key).Style.Font.SetBold(true);
+                        ws.Row(dataRow).Style.Fill.BackgroundColor = isRp ? XLColor.FromHtml("#FFF2CC") : XLColor.FromHtml("#E1E1E1");
+
+                        colIdx = 3;
+                        foreach (var m in uniqueMonths)
+                        {
+                            double v = panGroup.Where(g => g.Month == m).Sum(g => mCfg.ValTarget == "T" ? g.Taxable : g.Invoice);
+                            if (v > 0) ws.Cell(dataRow, colIdx).SetValue(v);
+                            colIdx++;
+                        }
+                        ws.Cell(dataRow, colIdx).FormulaA1 = $"=SUM(C{dataRow}:{GetColLetter(colIdx - 1)}{dataRow})";
+                        
+                        int parentRow = dataRow;
+                        dataRow++;
+
+                        var groupedByState = panGroup.GroupBy(g => g.State).ToList();
+                        foreach (var stateGroup in groupedByState)
+                        {
+                            ws.Cell(dataRow, 1).SetValue($"   >> {stateGroup.Key}");
+                            colIdx = 3;
+                            foreach (var m in uniqueMonths)
+                            {
+                                double v = stateGroup.Where(g => g.Month == m).Sum(g => mCfg.ValTarget == "T" ? g.Taxable : g.Invoice);
+                                if (v > 0) ws.Cell(dataRow, colIdx).SetValue(v);
+                                colIdx++;
+                            }
+                            ws.Cell(dataRow, colIdx).FormulaA1 = $"=SUM(C{dataRow}:{GetColLetter(colIdx - 1)}{dataRow})";
+                            dataRow++;
+                        }
+                        ws.Rows(parentRow + 1, dataRow - 1).Group();
+                    }
+                    ws.Columns().AdjustToContents();
+                    ws.RangeUsed().Style.NumberFormat.Format = "#,##0.00";
+                    ws.Column(1).Style.NumberFormat.Format = "@";
+                    ws.Column(2).Style.NumberFormat.Format = "@";
+                }
+
+                prog.Report(new UiProgressReport("COMPILE", 100, "Finalizing ledger metadata profiles..."));
+                var wsGlossary = outWb.Worksheets.Add("Audit_Glossary");
+                wsGlossary.Cell("A1").SetValue("Reporting Ledger Color Key").Style.Font.SetBold(true);
+                wsGlossary.Cell("A3").Style.Fill.BackgroundColor = XLColor.FromHtml("#FFF2CC");
+                wsGlossary.Cell("B3").SetValue("Related Party Configuration / Subledger Identifiers");
+                wsGlossary.Cell("A4").Style.Fill.BackgroundColor = XLColor.FromHtml("#E1E1E1");
+                wsGlossary.Cell("B4").SetValue("Third-Party Verified Operational Vectors");
+                wsGlossary.Cell("A5").Style.Fill.BackgroundColor = XLColor.FromHtml("#FFF2CC");
+                wsGlossary.Cell("A5").Style.Font.Italic = true;
+                wsGlossary.Cell("B5").SetValue("GSTR1 Operational Fallback Values (Triggered when explicit GSTR3B data is filed as missing or 0)");
+                wsGlossary.Columns().AdjustToContents();
+
+                outWb.SaveAs(outputPath);
+                prog.Report(new UiProgressReport("LOG", 100, $"Export Complete: {outputName}"));
+            }
+        }
+
+        private void BtnOpenFolder_Click(object sender, RoutedEventArgs e)
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = TxtDestPath.Text,
+                UseShellExecute = true,
+                Verb = "open"
+            });
+        }
+
+        private static double SafeDouble(XLCellValue value)
+        {
+            if (value.IsBlank) return 0;
+            if (value.IsNumber) return value.GetNumber();
+            string txt = value.ToString().Trim();
+            if (double.TryParse(txt, out double res)) return res;
+            return 0;
+        }
+
+        private static string GetColLetter(int n)
+        {
+            string s = "";
+            while (n > 0)
+            {
+                int m = (n - 1) % 26;
+                s = (char)(65 + m) + s;
+                n = (n - m) / 26;
+            }
+            return s;
+        }
+    }
+
+    // --- Core UI Communication Bridge ---
+    public class UiProgressReport(string type, double val, string txt)
+    {
+        public string Type { get; set; } = type;
+        public double Value { get; set; } = val;
+        public string StatusText { get; set; } = txt;
+    }
+}
