@@ -1,9 +1,9 @@
-name: Native AOT Compilation Pipeline
+name: Single Binary Compilation Pipeline
 
 on:
   push:
     branches: [ "main" ]
-  workflow_dispatch: # Allows you to manually click a button to run the build
+  workflow_dispatch:
 
 jobs:
   build-windows:
@@ -21,8 +21,7 @@ jobs:
     - name: Restore Dependencies
       run: dotnet restore KarzaConsolidator.csproj
 
-    - name: Compile Standalone Native Executable
-      # Compiles directly to machine code targeting 64-bit Windows environments
+    - name: Compile Standalone Executable
       run: dotnet publish KarzaConsolidator.csproj -c Release -r win-x64 --self-contained true -o ./publish
 
     - name: Upload Portable Executable Artifact
