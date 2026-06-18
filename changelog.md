@@ -1,11 +1,23 @@
-Changelog
-
-All notable changes to the Karza Deep-Consolidation Engine will be documented in this file.
-[v2026.006] - GSTR1 Fallback Protocol & Dynamic Formatting
 🚀 Added
 
-    GSTR1 Fallback System: Implemented intelligent cross-checking logic during the revenue extraction phase. If an entity has not filed GSTR-3B for a specific month (resulting in a 0 or blank in the GSTR1 vs 3B sheet), the engine will automatically parse the adjacent GSTR1 columns. If valid numbers exist in GSTR1, they will be utilized to prevent mathematically false negative netting when internal transactions are subtracted.
+    Graphical User Interface (GUI): Completely retired the terminal command-line interface in favor of a modern, standalone Windows WPF desktop application.
 
-    Dynamic Visual Formatting: When the GSTR1 Fallback is triggered for a specific month and state, the engine will automatically format the corresponding Gross and Net values in the generated output sheets with Italics and a Light Yellow background color. This ensures complete transparency for anyone auditing the final file.
+    Dynamic Execution Pathways: Implemented native Windows Folder Pickers, allowing users to dynamically select Source and Destination directories without modifying code or moving files.
 
-    Glossary Update: Added a new legend entry to the Audit_Glossary sheet explicitly explaining the Light Yellow/Italic formatting applied to the GSTR1 Fallback values.
+    Asynchronous Progress Matrix: Engine processes have been decoupled from the UI using background worker threads (Task.Run). Features dual synchronized progress bars tracking Extraction and Compilation phases simultaneously without freezing the application window.
+
+    Live Audit Terminal: Added a built-in scrolling terminal console to the application window to display real-time transaction validations, error catches, and runtime metrics.
+
+    The "Black Box" Logger: Implemented a global exception failsafe (KARZA_CRASH_LOG.txt). If the application encounters an OS-level block or initialization failure, it will now trap the error, write a detailed stack trace to the execution folder, and notify the user rather than silently vanishing.
+
+🛠️ Fixed & Optimized
+
+    Corporate AV "Silent Kill" Bypass: Resolved a critical issue where Windows Defender and enterprise security policies were silently terminating the application upon launch. Native UI rendering libraries (wpfgfx_cor3.dll) are now configured to extract safely to the local disk rather than loading suspiciously into active RAM.
+
+    XAML Compilation Hardening: Sanitized UI layout properties to ensure strict backward compatibility with standard Windows Presentation Foundation rendering engines.
+
+    Domain Model Stabilization: Re-linked structural data classes (FileMetadata, SummaryRecord, etc.) directly to the core application namespace, ensuring flawless single-file compilation.
+
+⏭️ Planned for Next Release
+
+    Enable LZ4 Native AOT Compression to reduce overall executable file size.
