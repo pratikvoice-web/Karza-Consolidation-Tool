@@ -96,7 +96,7 @@ namespace KarzaConsolidator
             catch (Exception ex)
             {
                 LogLine($"FATAL SYSTEM EXCEPTION: {ex.Message}");
-                MessageBox.Show($"Core engine halted operations: {ex.Message}", "Processing Failure", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Core engine halted operations:\n{ex.Message}", "Processing Failure", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {
@@ -473,7 +473,67 @@ namespace KarzaConsolidator
         }
     }
 
-    // --- Core UI Communication Bridge ---
+    // --- Core Architecture Domain Models ---
+    public class FileMetadata(string file, string pan, string name, string gstin, string state, string suffix)
+    {
+        public string FilePath { get; set; } = file;
+        public string PAN { get; set; } = pan;
+        public string TradeName { get; set; } = name;
+        public string GSTIN { get; set; } = gstin;
+        public string StateCode { get; set; } = state;
+        public string Suffix { get; set; } = suffix;
+    }
+
+    public class MonthData(double gt, double gi, bool fb)
+    {
+        public double GrossTaxable { get; set; } = gt;
+        public double GrossInvoice { get; set; } = gi;
+        public double InternalTaxableCustomer { get; set; } = 0;
+        public double InternalInvoiceCustomer { get; set; } = 0;
+        public double InternalTaxableSupplier { get; set; } = 0;
+        public double InternalInvoiceSupplier { get; set; } = 0;
+        public bool IsFallback { get; set; } = fb;
+    }
+
+    public class SummaryRecord(string m, string st, string t, double gt, double gi, double it, double ii, bool fb)
+    {
+        public string Month { get; set; } = m;
+        public string State { get; set; } = st;
+        public string Type { get; set; } = t;
+        public double GrossTaxable { get; set; } = gt;
+        public double GrossInvoice { get; set; } = gi;
+        public double InternalTaxable { get; set; } = it;
+        public double InternalInvoice { get; set; } = ii;
+        public bool IsFallback { get; set; } = fb;
+    }
+
+    public class MatrixRecord(string n, string p, string st, string m, double t, double i, string ty)
+    {
+        public string Name { get; set; } = n;
+        public string PAN { get; set; } = p;
+        public string State { get; set; } = st;
+        public string Month { get; set; } = m;
+        public double Taxable { get; set; } = t;
+        public double Invoice { get; set; } = i;
+        public bool IsRelatedParty { get; set; } = false;
+        public string Type { get; set; } = ty;
+    }
+
+    public class NetConfig(string sName, string target, bool iTax, string[] lbls)
+    {
+        public string SheetName { get; set; } = sName;
+        public string TypeTarget { get; set; } = target;
+        public bool IsTaxable { get; set; } = iTax;
+        public string[] Labels { get; set; } = lbls;
+    }
+
+    public class MatrixConfig(string sName, string target, string valType)
+    {
+        public string SheetName { get; set; } = sName;
+        public string TypeTarget { get; set; } = target;
+        public string ValTarget { get; set; } = valType;
+    }
+
     public class UiProgressReport(string type, double val, string txt)
     {
         public string Type { get; set; } = type;
