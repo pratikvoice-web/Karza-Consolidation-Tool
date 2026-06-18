@@ -25,7 +25,7 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBox x:Name="TxtSourcePath" Grid.Column="0" Padding="10,8" VerticalContentAlignment="Center" Background="White" BorderBrush="#CBD5E1" FontSize="12" CornerRadius="4"/>
+                <TextBox x:Name="TxtSourcePath" Grid.Column="0" Padding="10,8" VerticalContentAlignment="Center" Background="White" BorderBrush="#CBD5E1" FontSize="12"/>
                 <Button x:Name="BtnBrowseSource" Grid.Column="1" Content="Browse Folder" Padding="15,0" Margin="10,0,0,0" Click="BtnBrowseSource_Click" Background="#E2E8F0" BorderBrush="#CBD5E1" FontWeight="SemiBold"/>
             </Grid>
 
@@ -35,7 +35,7 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBox x:Name="TxtDestPath" Grid.Column="0" Padding="10,8" VerticalContentAlignment="Center" Background="White" BorderBrush="#CBD5E1" FontSize="12" CornerRadius="4"/>
+                <TextBox x:Name="TxtDestPath" Grid.Column="0" Padding="10,8" VerticalContentAlignment="Center" Background="White" BorderBrush="#CBD5E1" FontSize="12"/>
                 <Button x:Name="BtnBrowseDest" Grid.Column="1" Content="Browse Folder" Padding="15,0" Margin="10,0,0,0" Click="BtnBrowseDest_Click" Background="#E2E8F0" BorderBrush="#CBD5E1" FontWeight="SemiBold"/>
             </Grid>
         </StackPanel>
