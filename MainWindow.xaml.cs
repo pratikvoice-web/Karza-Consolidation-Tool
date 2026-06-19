@@ -284,6 +284,7 @@ namespace KarzaConsolidator
 
                 var uniqueMonths = summaryData.Select(s => s.Month).Concat(matrixData.Select(m => m.Month)).Distinct().Where(m => !string.IsNullOrEmpty(m)).OrderBy(m => DateTime.ParseExact(m, "MMM-yy", System.Globalization.CultureInfo.InvariantCulture)).ToList();
                 var uniqueStates = summaryData.Select(s => s.State).Distinct().OrderBy(s => s).ToList();
+                var fyGroups = uniqueMonths.GroupBy(m => GetFinancialYear(m)).ToList();
 
                 double auditGross = summaryData.Where(s => s.Type == "Customer").Sum(s => s.GrossTaxable);
                 double auditInternal = summaryData.Where(s => s.Type == "Customer").Sum(s => s.InternalTaxable);
@@ -307,50 +308,72 @@ namespace KarzaConsolidator
                 {
                     prog.Report(new UiProgressReport("COMPILE", ((double)++compStep / 9) * 100, $"Writing Array Map: {cfg.SheetName}"));
                     var ws = outWb.Worksheets.Add(cfg.SheetName);
+                    ws.Outline.SummaryVLocation = XLOutlineSummaryVLocation.Top;
                     int rowTracker = 1;
 
                     foreach (var block in new[] { "Gross", "Internal", "Net" })
                     {
                         string headerLabel = block == "Gross" ? cfg.Labels[0] : block == "Internal" ? cfg.Labels[1] : cfg.Labels[2];
                         ws.Cell(rowTracker, 1).SetValue(headerLabel).Style.Font.SetBold(true);
-                        ws.Cell(rowTracker + 1, 1).SetValue("Month").Style.Font.SetBold(true);
+                        ws.Cell(rowTracker + 1, 1).SetValue("Financial Year / Month").Style.Font.SetBold(true);
 
                         int colIdx = 2;
                         foreach (var st in uniqueStates) ws.Cell(rowTracker + 1, colIdx++).SetValue(st).Style.Font.SetBold(true);
                         ws.Cell(rowTracker + 1, colIdx).SetValue("Total").Style.Font.SetBold(true);
+                        int maxColIdx = colIdx;
 
                         int dataRow = rowTracker + 2;
-                        foreach (var m in uniqueMonths)
+
+                        foreach (var fy in fyGroups)
                         {
-                            ws.Cell(dataRow, 1).SetValue(m).Style.NumberFormat.Format = "@";
-                            colIdx = 2;
-                            bool rowContainsFallback = false;
+                            int fyRow = dataRow;
+                            ws.Cell(fyRow, 1).SetValue(fy.Key).Style.Font.SetBold(true);
+                            ws.Row(fyRow).Style.Fill.BackgroundColor = XLColor.FromHtml("#F1F5F9");
+                            dataRow++;
+                            int startGroupRow = dataRow;
 
-                            foreach (var st in uniqueStates)
+                            foreach (var m in fy)
                             {
-                                var matches = summaryData.Where(s => s.Month == m && s.State == st && s.Type == cfg.TypeTarget).ToList();
-                                double cellValue = 0;
+                                ws.Cell(dataRow, 1).SetValue(m).Style.NumberFormat.Format = "@";
+                                colIdx = 2;
+                                bool rowContainsFallback = false;
 
-                                if (matches.Count > 0)
+                                foreach (var st in uniqueStates)
                                 {
-                                    if (block == "Gross") cellValue = matches.Sum(s => cfg.IsTaxable ? s.GrossTaxable : s.GrossInvoice);
-                                    else if (block == "Internal") cellValue = matches.Sum(s => cfg.IsTaxable ? s.InternalTaxable : s.InternalInvoice);
-                                    else cellValue = matches.Sum(s => cfg.IsTaxable ? (s.GrossTaxable - s.InternalTaxable) : (s.GrossInvoice - s.InternalInvoice));
+                                    var matches = summaryData.Where(s => s.Month == m && s.State == st && s.Type == cfg.TypeTarget).ToList();
+                                    double cellValue = 0;
 
-                                    if (matches.Any(s => s.IsFallback)) rowContainsFallback = true;
+                                    if (matches.Count > 0)
+                                    {
+                                        if (block == "Gross") cellValue = matches.Sum(s => cfg.IsTaxable ? s.GrossTaxable : s.GrossInvoice);
+                                        else if (block == "Internal") cellValue = matches.Sum(s => cfg.IsTaxable ? s.InternalTaxable : s.InternalInvoice);
+                                        else cellValue = matches.Sum(s => cfg.IsTaxable ? (s.GrossTaxable - s.InternalTaxable) : (s.GrossInvoice - s.InternalInvoice));
+
+                                        if (matches.Any(s => s.IsFallback)) rowContainsFallback = true;
+                                    }
+
+                                    var targetCell = ws.Cell(dataRow, colIdx++);
+                                    targetCell.SetValue(cellValue);
+
+                                    if (rowContainsFallback && block != "Internal" && cellValue > 0)
+                                    {
+                                        targetCell.Style.Font.Italic = true;
+                                        targetCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#FFF2CC");
+                                    }
                                 }
+                                ws.Cell(dataRow, colIdx).FormulaA1 = $"=SUM(B{dataRow}:{GetColLetter(colIdx - 1)}{dataRow})";
+                                dataRow++;
+                            }
 
-                                var targetCell = ws.Cell(dataRow, colIdx++);
-                                targetCell.SetValue(cellValue);
-
-                                if (rowContainsFallback && block != "Internal" && cellValue > 0)
+                            if (dataRow > startGroupRow)
+                            {
+                                ws.Rows(startGroupRow, dataRow - 1).Group();
+                                for (int c = 2; c <= maxColIdx; c++)
                                 {
-                                    targetCell.Style.Font.Italic = true;
-                                    targetCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#FFF2CC");
+                                    ws.Cell(fyRow, c).FormulaA1 = $"=SUM({GetColLetter(c)}{startGroupRow}:{GetColLetter(c)}{dataRow - 1})";
+                                    ws.Cell(fyRow, c).Style.Font.SetBold(true);
                                 }
                             }
-                            ws.Cell(dataRow, colIdx).FormulaA1 = $"=SUM(B{dataRow}:{GetColLetter(colIdx - 1)}{dataRow})";
-                            dataRow++;
                         }
                         rowTracker = dataRow + 2;
                     }
@@ -371,15 +394,35 @@ namespace KarzaConsolidator
                 {
                     prog.Report(new UiProgressReport("COMPILE", ((double)++compStep / 9) * 100, $"Writing Subledger Layout: {mCfg.SheetName}"));
                     var ws = outWb.Worksheets.Add(mCfg.SheetName);
-                    ws.Cell(1, 1).SetValue("Party / State").Style.Font.SetBold(true);
-                    ws.Cell(1, 2).SetValue("PAN").Style.Font.SetBold(true);
+                    ws.Outline.SummaryVLocation = XLOutlineSummaryVLocation.Top;
+                    ws.Outline.SummaryHLocation = XLOutlineSummaryHLocation.Right;
+
+                    ws.Cell(1, 1).SetValue("Financial Year").Style.Font.SetBold(true);
+                    ws.Cell(2, 1).SetValue("Party / State").Style.Font.SetBold(true);
+                    ws.Cell(2, 2).SetValue("PAN").Style.Font.SetBold(true);
 
                     int colIdx = 3;
-                    foreach (var m in uniqueMonths) ws.Cell(1, colIdx++).SetValue(m).Style.Font.SetBold(true);
-                    ws.Cell(1, colIdx).SetValue("Total").Style.Font.SetBold(true);
+                    var fyTotalCols = new List<string>();
 
-                    int dataRow = 2;
-                    var groupedByPan = matrixData.Where(m => m.Type == mCfg.TypeTarget).GroupBy(m => m.PAN).ToList();
+                    foreach (var fy in fyGroups)
+                    {
+                        int startCol = colIdx;
+                        foreach (var m in fy) ws.Cell(2, colIdx++).SetValue(m).Style.Font.SetBold(true);
+                        
+                        ws.Cell(2, colIdx).SetValue($"{fy.Key} Total").Style.Font.SetBold(true).Font.FontColor = XLColor.AirForceBlue;
+                        ws.Range(1, startCol, 1, colIdx).Merge().SetValue(fy.Key).Style.Font.SetBold(true).Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
+                        
+                        if (colIdx - 1 >= startCol) ws.Columns(startCol, colIdx - 1).Group();
+                        fyTotalCols.Add(GetColLetter(colIdx));
+                        colIdx++;
+                    }
+                    ws.Cell(2, colIdx).SetValue("Grand Total").Style.Font.SetBold(true);
+
+                    int dataRow = 3;
+                    var groupedByPan = matrixData.Where(m => m.Type == mCfg.TypeTarget)
+                        .GroupBy(m => m.PAN)
+                        .OrderByDescending(g => g.Sum(m => mCfg.ValTarget == "T" ? m.Taxable : m.Invoice))
+                        .ToList();
 
                     foreach (var panGroup in groupedByPan)
                     {
@@ -391,13 +434,21 @@ namespace KarzaConsolidator
                         ws.Row(dataRow).Style.Fill.BackgroundColor = isRp ? XLColor.FromHtml("#FFF2CC") : XLColor.FromHtml("#E1E1E1");
 
                         colIdx = 3;
-                        foreach (var m in uniqueMonths)
+                        foreach (var fy in fyGroups)
                         {
-                            double v = panGroup.Where(g => g.Month == m).Sum(g => mCfg.ValTarget == "T" ? g.Taxable : g.Invoice);
-                            if (v > 0) ws.Cell(dataRow, colIdx).SetValue(v);
+                            int startCol = colIdx;
+                            foreach (var m in fy)
+                            {
+                                double v = panGroup.Where(g => g.Month == m).Sum(g => mCfg.ValTarget == "T" ? g.Taxable : g.Invoice);
+                                if (v > 0) ws.Cell(dataRow, colIdx).SetValue(v);
+                                colIdx++;
+                            }
+                            ws.Cell(dataRow, colIdx).FormulaA1 = $"=SUM({GetColLetter(startCol)}{dataRow}:{GetColLetter(colIdx - 1)}{dataRow})";
+                            ws.Cell(dataRow, colIdx).Style.Font.SetBold(true);
                             colIdx++;
                         }
-                        ws.Cell(dataRow, colIdx).FormulaA1 = $"=SUM(C{dataRow}:{GetColLetter(colIdx - 1)}{dataRow})";
+                        ws.Cell(dataRow, colIdx).FormulaA1 = "=" + string.Join("+", fyTotalCols.Select(c => $"{c}{dataRow}"));
+                        ws.Cell(dataRow, colIdx).Style.Font.SetBold(true);
                         
                         int parentRow = dataRow;
                         dataRow++;
@@ -407,13 +458,21 @@ namespace KarzaConsolidator
                         {
                             ws.Cell(dataRow, 1).SetValue($"   >> {stateGroup.Key}");
                             colIdx = 3;
-                            foreach (var m in uniqueMonths)
+                            foreach (var fy in fyGroups)
                             {
-                                double v = stateGroup.Where(g => g.Month == m).Sum(g => mCfg.ValTarget == "T" ? g.Taxable : g.Invoice);
-                                if (v > 0) ws.Cell(dataRow, colIdx).SetValue(v);
+                                int startCol = colIdx;
+                                foreach (var m in fy)
+                                {
+                                    double v = stateGroup.Where(g => g.Month == m).Sum(g => mCfg.ValTarget == "T" ? g.Taxable : g.Invoice);
+                                    if (v > 0) ws.Cell(dataRow, colIdx).SetValue(v);
+                                    colIdx++;
+                                }
+                                ws.Cell(dataRow, colIdx).FormulaA1 = $"=SUM({GetColLetter(startCol)}{dataRow}:{GetColLetter(colIdx - 1)}{dataRow})";
+                                ws.Cell(dataRow, colIdx).Style.Font.SetBold(true);
                                 colIdx++;
                             }
-                            ws.Cell(dataRow, colIdx).FormulaA1 = $"=SUM(C{dataRow}:{GetColLetter(colIdx - 1)}{dataRow})";
+                            ws.Cell(dataRow, colIdx).FormulaA1 = "=" + string.Join("+", fyTotalCols.Select(c => $"{c}{dataRow}"));
+                            ws.Cell(dataRow, colIdx).Style.Font.SetBold(true);
                             dataRow++;
                         }
                         ws.Rows(parentRow + 1, dataRow - 1).Group();
@@ -439,6 +498,15 @@ namespace KarzaConsolidator
                 outWb.SaveAs(outputPath);
                 prog.Report(new UiProgressReport("LOG", 100, $"Export Complete: {outputName}"));
             }
+        }
+
+        private static string GetFinancialYear(string mmmYY)
+        {
+            var dt = DateTime.ParseExact(mmmYY, "MMM-yy", System.Globalization.CultureInfo.InvariantCulture);
+            if (dt.Month >= 4)
+                return $"FY{dt.ToString("yy")}-{dt.AddYears(1).ToString("yy")}";
+            else
+                return $"FY{dt.AddYears(-1).ToString("yy")}-{dt.ToString("yy")}";
         }
 
         private void BtnOpenFolder_Click(object sender, RoutedEventArgs e)
