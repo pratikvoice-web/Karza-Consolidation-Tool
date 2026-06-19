@@ -15,7 +15,7 @@
             <StackPanel>
                 <TextBlock Text="KARZA DEEP CONSOLIDATION ENGINE v2026.07" Foreground="#38BDF8" FontSize="18" FontWeight="Bold"/>
                 <TextBlock Text="Enterprise Data Aggregation, Subledger Matrixing &amp; Revenue Reconciliation Engine" Foreground="#94A3B8" FontSize="12" Margin="0,6,0,0"/>
-                <TextBlock Text="Developed by Pratik Pattanaik" Foreground="#64748B" FontSize="11" Margin="0,4,0,0" FontStyle="Italic"/>
+                <TextBlock Text="Github: pratikvoice-web/Karza-Consolidation-Tool" Foreground="#64748B" FontSize="11" Margin="0,4,0,0" FontStyle="Italic"/>
             </StackPanel>
         </Border>
 
