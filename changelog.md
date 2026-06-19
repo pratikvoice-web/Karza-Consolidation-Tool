@@ -1,23 +1,10 @@
+[v2026.07] - Financial Year Outlining & Volumetric Sorting
 🚀 Added
 
-    Graphical User Interface (GUI): Completely retired the terminal command-line interface in favor of a modern, standalone Windows WPF desktop application.
+    Dynamic Financial Year Groupings: Built a chronologic parser supporting standard Indian FY bounds (April to March). Outputs now explicitly group months into overarching Financial Year boundaries (e.g., FY24-25).
 
-    Dynamic Execution Pathways: Implemented native Windows Folder Pickers, allowing users to dynamically select Source and Destination directories without modifying code or moving files.
+    Multi-Axis Expandable Subledgers: Utilized the FY logic to automatically configure native Excel row and column outlines (ws.Outline.Group()). Summary sheets now collapse months into FY rows, while detail sheets dynamically span and collapse FY columns with explicit "FY Total" safety pillars.
 
-    Asynchronous Progress Matrix: Engine processes have been decoupled from the UI using background worker threads (Task.Run). Features dual synchronized progress bars tracking Extraction and Compilation phases simultaneously without freezing the application window.
+    Volumetric Counterparty Sorting: Integrated deep LINQ array evaluations during the subledger compilation layer. Suppliers and Customers are now automatically ranked and written to the matrix strictly by total transaction volume (largest to smallest) for immediate executive visibility.
 
-    Live Audit Terminal: Added a built-in scrolling terminal console to the application window to display real-time transaction validations, error catches, and runtime metrics.
-
-    The "Black Box" Logger: Implemented a global exception failsafe (KARZA_CRASH_LOG.txt). If the application encounters an OS-level block or initialization failure, it will now trap the error, write a detailed stack trace to the execution folder, and notify the user rather than silently vanishing.
-
-🛠️ Fixed & Optimized
-
-    Corporate AV "Silent Kill" Bypass: Resolved a critical issue where Windows Defender and enterprise security policies were silently terminating the application upon launch. Native UI rendering libraries (wpfgfx_cor3.dll) are now configured to extract safely to the local disk rather than loading suspiciously into active RAM.
-
-    XAML Compilation Hardening: Sanitized UI layout properties to ensure strict backward compatibility with standard Windows Presentation Foundation rendering engines.
-
-    Domain Model Stabilization: Re-linked structural data classes (FileMetadata, SummaryRecord, etc.) directly to the core application namespace, ensuring flawless single-file compilation.
-
-⏭️ Planned for Next Release
-
-    Enable LZ4 Native AOT Compression to reduce overall executable file size.
+    LZ4 Native Compression: Explicitly requested the .NET compiler flag <EnableCompressionInSingleFile> to shrink the total payload size of the final GUI .exe dramatically.
