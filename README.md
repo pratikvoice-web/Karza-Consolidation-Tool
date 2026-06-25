@@ -1,6 +1,7 @@
 # Karza GST Master Consolidator
 
 An industrial-strength automation tool for consolidating Karza GST Transaction Reports across multiple states and entities.
+https://github.com/pratikvoice-web/Karza-Consolidation-Tool/releases/
 
 ## 🚀 Features
 - **Multi-Entity Support:** Automatically groups files by PAN/Trade Name and creates separate workbooks.
