@@ -136,8 +136,7 @@ namespace KarzaConsolidator
 
                 string name = b4;
                 if (string.IsNullOrWhiteSpace(name) || name == "-" || name == "NA") name = b3;
-                if (string.IsNullOrWhiteSpace(name)) name = "Unknown_Entity";
-                string safeName = Regex.Replace(name, @"[\\/:*?""<>|]", "_");
+                string safeName = NormalizeEntityName(name);
 
                 string stateCode = b6.Length >= 15 ? b6.Substring(0, 2) : "00";
                 string suffix = b6.Length >= 15 ? b6.Substring(b6.Length - 3, 3) : "XXX";
@@ -146,7 +145,7 @@ namespace KarzaConsolidator
             }
 
             var entityGroups = fileDataList.GroupBy(f => 
-                (f.PAN.Length == 10 && char.ToUpper(f.PAN[3]) == 'P') ? $"{f.PAN}_{f.TradeName}" : f.PAN
+                (f.PAN.Length == 10 && char.ToUpperInvariant(f.PAN[3]) == 'P') ? $"{f.PAN}_{f.TradeName}" : f.PAN
             ).ToDictionary(g => g.Key, g => g.ToList());
 
             foreach (var group in entityGroups)
@@ -245,7 +244,13 @@ namespace KarzaConsolidator
                                         cn.Contains("Total", StringComparison.OrdinalIgnoreCase)) continue;
 
                                     if (string.IsNullOrEmpty(cp)) cp = "UNREGISTERED";
-                                    if (cp != "UNREGISTERED" && !string.IsNullOrWhiteSpace(cn) && cn != "-") panToNameMap[cp] = cn;
+                                    
+                                    string normalisedCn = string.Empty;
+                                    if (cp != "UNREGISTERED" && !string.IsNullOrWhiteSpace(cn) && cn != "-") 
+                                    {
+                                        normalisedCn = NormalizeEntityName(cn);
+                                        panToNameMap[cp] = normalisedCn;
+                                    }
 
                                     double vt = SafeDouble(wsM.Cell(r, c + 3).Value);
                                     double vi = SafeDouble(wsM.Cell(r, c + 5).Value);
@@ -257,7 +262,7 @@ namespace KarzaConsolidator
                                         if (type == "Customer") { fileMonths[m].InternalTaxableCustomer += vt; fileMonths[m].InternalInvoiceCustomer += vi; }
                                         else { fileMonths[m].InternalTaxableSupplier += vt; fileMonths[m].InternalInvoiceSupplier += vi; }
                                     }
-                                    else matrixData.Add(new MatrixRecord(cn, cp, stHead, m, vt, vi, type));
+                                    else matrixData.Add(new MatrixRecord(normalisedCn, cp, stHead, m, vt, vi, type));
                                 }
                             }
                         }
@@ -278,7 +283,7 @@ namespace KarzaConsolidator
                     if (string.IsNullOrWhiteSpace(md.Name) || md.Name == "-")
                     {
                         if (panToNameMap.ContainsKey(md.PAN)) md.Name = panToNameMap[md.PAN];
-                        else md.Name = md.PAN == "UNREGISTERED" ? "Consumer / Unregistered Sales" : "Unknown Counterparty";
+                        else md.Name = md.PAN == "UNREGISTERED" ? "CONSUMER / UNREGISTERED SALES" : "UNKNOWN COUNTERPARTY";
                     }
                 }
 
@@ -498,6 +503,21 @@ namespace KarzaConsolidator
                 outWb.SaveAs(outputPath);
                 prog.Report(new UiProgressReport("LOG", 100, $"Export Complete: {outputName}"));
             }
+        }
+
+        private static string NormalizeEntityName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return "UNKNOWN_ENTITY";
+
+            name = name.ToUpperInvariant().Trim();
+
+            name = Regex.Replace(name, @"\b(?:PRIVATE|PVT\.?|\(P\))\s*(?:LIMITED|LTD\.?)\b", "PVT LTD");
+            name = Regex.Replace(name, @"\b(?:LIMITED|LTD\.?)\b", "LTD");
+
+            name = Regex.Replace(name, @"\s+", " ");
+            name = Regex.Replace(name, @"[\\/:*?""<>|]", "_");
+
+            return name.Trim();
         }
 
         private static string GetFinancialYear(string mmmYY)
