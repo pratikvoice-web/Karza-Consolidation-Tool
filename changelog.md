@@ -1,4 +1,5 @@
 [v2026.08] - Invariant Parsing & Case-Insensitive Thread Synchronization
+
 🐛 Fixed
 
 - Data Exclusion & Disk Overwrite Bug: Patched a severe system thread collision where entity strings possessing identical spelling but different casing boundaries (e.g., "ABC TRADERS" vs "Abc Traders") bypassed memory grouping and subsequently forced destructive disk-level overwrites.
