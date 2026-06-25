@@ -1,10 +1,12 @@
-[v2026.07] - Financial Year Outlining & Volumetric Sorting
+[v2026.08] - Invariant Parsing & Case-Insensitive Thread Synchronization
+🐛 Fixed
+
+- Data Exclusion & Disk Overwrite Bug: Patched a severe system thread collision where entity strings possessing identical spelling but different casing boundaries (e.g., "ABC TRADERS" vs "Abc Traders") bypassed memory grouping and subsequently forced destructive disk-level overwrites.
+
 🚀 Added
 
-    Dynamic Financial Year Groupings: Built a chronologic parser supporting standard Indian FY bounds (April to March). Outputs now explicitly group months into overarching Financial Year boundaries (e.g., FY24-25).
+ - Invariant Text Transformation (Global Uppercase): Shifted string standardisation directly to the extraction tier. The engine immediately normalises counterparties to uppercase arrays before assigning internal dictionary keys.
 
-    Multi-Axis Expandable Subledgers: Utilized the FY logic to automatically configure native Excel row and column outlines (ws.Outline.Group()). Summary sheets now collapse months into FY rows, while detail sheets dynamically span and collapse FY columns with explicit "FY Total" safety pillars.
+ - Corporate Suffix Normalization Layer: Integrated boundary-locked Regular Expressions to intelligently sanitize and uniform variable corporate designations (PRIVATE LIMITED, (P) LTD, LTD., etc.) into a consistent data format (PVT LTD and LTD) without manipulating internal brand naming structures.
 
-    Volumetric Counterparty Sorting: Integrated deep LINQ array evaluations during the subledger compilation layer. Suppliers and Customers are now automatically ranked and written to the matrix strictly by total transaction volume (largest to smallest) for immediate executive visibility.
-
-    LZ4 Native Compression: Explicitly requested the .NET compiler flag <EnableCompressionInSingleFile> to shrink the total payload size of the final GUI .exe dramatically.
+https://github.com/pratikvoice-web/Karza-Consolidation-Tool/releases/tag/v2026.beta.008
