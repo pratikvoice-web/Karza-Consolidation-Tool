@@ -16,7 +16,7 @@ namespace KarzaConsolidator
     public partial class MainWindow : Window
     {
         // Update Engine Directives
-        private const string CurrentAppVersion = "v2026.08";
+        private const string CurrentAppVersion = "v2026.09";
         private const string GithubRepository = "pratikvoice-web/Karza-Consolidation-Tool";
         private string _updateDownloadUrl = string.Empty;
 
@@ -403,6 +403,36 @@ del ""%~f0""";
                 string outputPath = Path.Combine(outputFolder, outputName);
                 using var outWb = new XLWorkbook();
 
+                // 1. Compile the Index Sheet
+                var wsIndex = outWb.Worksheets.Add("Index");
+                wsIndex.Cell("A1").SetValue("Consolidated GST Karza").Style.Font.SetBold(true).Font.SetFontSize(16);
+                wsIndex.Cell("A3").SetValue("Entity Name:").Style.Font.SetBold(true);
+                wsIndex.Cell("B3").SetValue(currentName);
+                wsIndex.Cell("A4").SetValue("PAN:").Style.Font.SetBold(true);
+                wsIndex.Cell("B4").SetValue(currentPan);
+
+                wsIndex.Cell("A6").SetValue("Table of Contents").Style.Font.SetBold(true).Font.SetFontSize(14);
+                wsIndex.Cell("A7").SetValue("S.No").Style.Font.SetBold(true);
+                wsIndex.Cell("B7").SetValue("Sheet Name").Style.Font.SetBold(true);
+                wsIndex.Cell("C7").SetValue("Description").Style.Font.SetBold(true);
+                wsIndex.Range("A7:C7").Style.Fill.BackgroundColor = XLColor.FromHtml("#E2E8F0");
+
+                int indexRow = 8;
+                int sheetCount = 1;
+
+                Action<string, string> AddToIndex = (sheetName, description) =>
+                {
+                    wsIndex.Cell(indexRow, 1).SetValue(sheetCount);
+                    var linkCell = wsIndex.Cell(indexRow, 2);
+                    linkCell.SetValue(sheetName);
+                    linkCell.SetHyperlink(new XLHyperlink($"'{sheetName}'!A1"));
+                    linkCell.Style.Font.FontColor = XLColor.RoyalBlue;
+                    linkCell.Style.Font.Underline = XLFontUnderlineValues.Single;
+                    wsIndex.Cell(indexRow, 3).SetValue(description);
+                    indexRow++;
+                    sheetCount++;
+                };
+
                 var configurations = new[]
                 {
                     new NetConfig("Tax. Value - Internal Sales", "Customer", true, new[] { "Gross Revenue - Taxable Value", "Internal Sales - Taxable Value", "Net Revenue - Taxable Value" }),
@@ -414,8 +444,9 @@ del ""%~f0""";
                 int compStep = 0;
                 foreach (var cfg in configurations)
                 {
-                    prog.Report(new UiProgressReport("COMPILE", ((double)++compStep / 9) * 100, $"Writing Array Map: {cfg.SheetName}"));
+                    prog.Report(new UiProgressReport("COMPILE", ((double)++compStep / 10) * 100, $"Writing Array Map: {cfg.SheetName}"));
                     var ws = outWb.Worksheets.Add(cfg.SheetName);
+                    AddToIndex(cfg.SheetName, $"Monthly Summary - {cfg.Labels[2].Replace("Net Revenue - ", "")}");
                     ws.Outline.SummaryVLocation = XLOutlineSummaryVLocation.Top;
                     int rowTracker = 1;
 
@@ -500,8 +531,9 @@ del ""%~f0""";
 
                 foreach (var mCfg in matrixConfigs)
                 {
-                    prog.Report(new UiProgressReport("COMPILE", ((double)++compStep / 9) * 100, $"Writing Subledger Layout: {mCfg.SheetName}"));
+                    prog.Report(new UiProgressReport("COMPILE", ((double)++compStep / 10) * 100, $"Writing Subledger Layout: {mCfg.SheetName}"));
                     var ws = outWb.Worksheets.Add(mCfg.SheetName);
+                    AddToIndex(mCfg.SheetName, $"Detailed Party-wise Subledger ({mCfg.TypeTarget})");
                     ws.Outline.SummaryVLocation = XLOutlineSummaryVLocation.Top;
                     ws.Outline.SummaryHLocation = XLOutlineSummaryHLocation.Right;
 
@@ -593,6 +625,9 @@ del ""%~f0""";
 
                 prog.Report(new UiProgressReport("COMPILE", 100, "Finalizing ledger metadata profiles..."));
                 var wsGlossary = outWb.Worksheets.Add("Audit_Glossary");
+                AddToIndex("Audit_Glossary", "Reporting Ledger Color Key & System Glossary");
+                wsIndex.Columns().AdjustToContents(); // Final format for the Index sheet
+
                 wsGlossary.Cell("A1").SetValue("Reporting Ledger Color Key").Style.Font.SetBold(true);
                 wsGlossary.Cell("A3").Style.Fill.BackgroundColor = XLColor.FromHtml("#FFF2CC");
                 wsGlossary.Cell("B3").SetValue("Related Party Configuration / Subledger Identifiers");
