@@ -626,7 +626,7 @@ del ""%~f0""";
                 prog.Report(new UiProgressReport("COMPILE", 100, "Finalizing ledger metadata profiles..."));
                 var wsGlossary = outWb.Worksheets.Add("Audit_Glossary");
                 AddToIndex("Audit_Glossary", "Reporting Ledger Color Key & System Glossary");
-                wsIndex.Columns().AdjustToContents(); // Final format for the Index sheet
+                wsIndex.Columns().AdjustToContents(); 
 
                 wsGlossary.Cell("A1").SetValue("Reporting Ledger Color Key").Style.Font.SetBold(true);
                 wsGlossary.Cell("A3").Style.Fill.BackgroundColor = XLColor.FromHtml("#FFF2CC");
