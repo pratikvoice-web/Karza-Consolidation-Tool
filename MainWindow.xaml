@@ -1,11 +1,11 @@
 <Window x:Class="KarzaConsolidator.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Karza Deep Consolidation Engine v2026.07" Height="680" Width="850" Background="#F1F5F9" WindowStartupLocation="CenterScreen">
+        Title="Karza Deep Consolidation Engine v2026.08" Height="680" Width="850" Background="#F1F5F9" WindowStartupLocation="CenterScreen">
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/> <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
@@ -15,11 +15,27 @@
             <StackPanel>
                 <TextBlock Text="KARZA DEEP CONSOLIDATION ENGINE v2026.08" Foreground="#38BDF8" FontSize="18" FontWeight="Bold"/>
                 <TextBlock Text="Enterprise Data Aggregation, Subledger Matrixing &amp; Revenue Reconciliation Engine" Foreground="#94A3B8" FontSize="12" Margin="0,6,0,0"/>
-                <TextBlock Text="Github: pratikvoice-web/Karza-Consolidation-Tool" Foreground="#64748B" FontSize="11" Margin="0,4,0,0" FontStyle="Italic"/>
+                <TextBlock Text="Developed by Pratik Pattanaik" Foreground="#64748B" FontSize="11" Margin="0,4,0,0" FontStyle="Italic"/>
             </StackPanel>
         </Border>
 
-        <StackPanel Grid.Row="1" Margin="0,0,0,15">
+        <Border x:Name="UpdateBanner" Grid.Row="1" Background="#FFFBEB" BorderBrush="#F59E0B" BorderThickness="1" CornerRadius="4" Padding="15,10" Margin="0,0,0,20" Visibility="Collapsed">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock x:Name="LblUpdateText" Text="A new version (vX.XX) is available." FontWeight="Bold" Foreground="#B45309" FontSize="12"/>
+                    <TextBlock Text="Optimize your engine with the latest compliance patches." Foreground="#D97706" FontSize="11" Margin="0,2,0,0"/>
+                </StackPanel>
+                <Button x:Name="BtnUpdateNow" Grid.Column="1" Content="Update Now" Background="#F59E0B" Foreground="White" FontWeight="Bold" BorderThickness="0" Padding="15,5" Margin="0,0,10,0" Click="BtnUpdateNow_Click"/>
+                <Button x:Name="BtnUpdateDismiss" Grid.Column="2" Content="Dismiss" Background="Transparent" Foreground="#9CA3AF" FontWeight="SemiBold" BorderThickness="0" Padding="10,5" Click="BtnUpdateDismiss_Click"/>
+            </Grid>
+        </Border>
+
+        <StackPanel Grid.Row="2" Margin="0,0,0,15">
             <TextBlock Text="Source Directory Path (Raw Karza State Reports)" FontSize="12" FontWeight="Bold" Foreground="#334155" Margin="0,0,0,6"/>
             <Grid Margin="0,0,0,15">
                 <Grid.ColumnDefinitions>
@@ -41,7 +57,7 @@
             </Grid>
         </StackPanel>
 
-        <Grid Grid.Row="2" Margin="0,5,0,20">
+        <Grid Grid.Row="3" Margin="0,5,0,20">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
@@ -56,11 +72,11 @@
             <Button x:Name="BtnRun" Grid.Column="1" Content="Execute Engine" Padding="35,0" Margin="25,0,0,0" FontSize="14" FontWeight="Bold" Foreground="White" Background="#0EA5E9" BorderThickness="0" Click="BtnRun_Click"/>
         </Grid>
 
-        <GroupBox Grid.Row="3" Header="Live Process Pipeline Audit Log" FontSize="11" FontWeight="Bold" Foreground="#475569" Margin="0,0,0,15">
+        <GroupBox Grid.Row="4" Header="Live Process Pipeline Audit Log" FontSize="11" FontWeight="Bold" Foreground="#475569" Margin="0,0,0,15">
             <TextBox x:Name="TxtLog" IsReadOnly="True" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" Background="#0F172A" Foreground="#E2E8F0" FontFamily="Consolas" FontSize="12" Padding="12" Margin="0,5,0,0" BorderThickness="0"/>
         </GroupBox>
 
-        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,5">
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,5">
             <Button x:Name="BtnOpenFolder" Content="Open Export Destination Location" Padding="15,10" Visibility="Collapsed" Click="BtnOpenFolder_Click" Background="#10B981" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
         </StackPanel>
     </Grid>
