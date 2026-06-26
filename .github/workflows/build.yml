@@ -1,32 +1,30 @@
-name: Standalone Portable Compilation Pipeline
-
-on:
-  push:
-    branches: [ "main" ]
-  workflow_dispatch:
+name: build-windows
+on: [push]
 
 jobs:
-  build-windows:
-    runs-on: windows-2022
-
+  build:
+    runs-on: windows-latest
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Setup .NET Core SDK
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '8.0.x'
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
 
-    - name: Restore Dependencies
-      run: dotnet restore KarzaConsolidator.csproj
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-    - name: Compile Standalone Portable Executable
-      # Compiles into a single portable binary package containing the runtime
-      run: dotnet publish KarzaConsolidator.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./publish
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
-    - name: Upload Portable Executable Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: Karza-Consolidation-Engine-v2026
-        path: ./publish/KarzaConsolidator.exe
+      - name: Build Wails App
+        run: wails build -platform windows/amd64
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Karza-Consolidator-Go
+          path: build/bin/*.exe
