@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
@@ -13,6 +15,11 @@ namespace KarzaConsolidator
 {
     public partial class MainWindow : Window
     {
+        // Update Engine Directives
+        private const string CurrentAppVersion = "v2026.08";
+        private const string GithubRepository = "pratikvoice-web/Karza-Consolidation-Tool";
+        private string _updateDownloadUrl = string.Empty;
+
         private static readonly Dictionary<string, string> StateMap = new()
         {
             { "01", "J&K" }, { "02", "HP" }, { "03", "Punjab" }, { "04", "Chandigarh" }, { "05", "Uttarakhand" },
@@ -32,8 +39,104 @@ namespace KarzaConsolidator
             TxtSourcePath.Text = runningFolder;
             TxtDestPath.Text = runningFolder;
             LogLine("System Initialization Status Matrix Configured. Ready.");
+            
+            _ = CheckForUpdatesAsync();
         }
 
+        // --- UPDATE ENGINE LOGIC ---
+        private async Task CheckForUpdatesAsync()
+        {
+            try
+            {
+                using var client = new HttpClient();
+                client.DefaultRequestHeaders.Add("User-Agent", "Karza-Consolidator-AutoUpdater");
+                
+                string response = await client.GetStringAsync($"https://api.github.com/repos/{GithubRepository}/releases/latest");
+                using var doc = JsonDocument.Parse(response);
+                
+                string remoteVersion = doc.RootElement.GetProperty("tag_name").GetString();
+                
+                if (!string.IsNullOrEmpty(remoteVersion) && remoteVersion != CurrentAppVersion)
+                {
+                    var assets = doc.RootElement.GetProperty("assets");
+                    foreach (var asset in assets.EnumerateArray())
+                    {
+                        if (asset.GetProperty("name").GetString().EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                        {
+                            _updateDownloadUrl = asset.GetProperty("browser_download_url").GetString();
+                            break;
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(_updateDownloadUrl))
+                    {
+                        Dispatcher.Invoke(() => 
+                        {
+                            LblUpdateText.Text = $"A new version ({remoteVersion}) is available.";
+                            UpdateBanner.Visibility = Visibility.Visible;
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Dispatcher.Invoke(() => LogLine($"[Telemetry] Remote version check bypassed: {ex.Message}"));
+            }
+        }
+
+        private async void BtnUpdateNow_Click(object sender, RoutedEventArgs e)
+        {
+            BtnUpdateNow.IsEnabled = false;
+            BtnUpdateNow.Content = "Downloading...";
+            BtnUpdateDismiss.IsEnabled = false;
+            BtnRun.IsEnabled = false;
+
+            try
+            {
+                string currentExePath = Environment.ProcessPath;
+                string tempExePath = Path.Combine(Path.GetTempPath(), "KarzaConsolidator_Update.exe");
+                string updaterBatPath = Path.Combine(Path.GetTempPath(), "KarzaUpdater.bat");
+
+                using (var client = new HttpClient())
+                {
+                    using var stream = await client.GetStreamAsync(_updateDownloadUrl);
+                    using var fileStream = new FileStream(tempExePath, FileMode.Create, FileAccess.Write, FileShare.None);
+                    await stream.CopyToAsync(fileStream);
+                }
+
+                string batScript = $@"@echo off
+timeout /t 2 /nobreak > NUL
+del ""{currentExePath}""
+move /y ""{tempExePath}"" ""{currentExePath}""
+start """" ""{currentExePath}""
+del ""%~f0""";
+
+                File.WriteAllText(updaterBatPath, batScript);
+
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = updaterBatPath,
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden,
+                    UseShellExecute = true
+                });
+
+                Environment.Exit(0);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Update transfer failed. Please download the latest version manually.\n\nError: {ex.Message}", "Update Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                UpdateBanner.Visibility = Visibility.Collapsed;
+                BtnRun.IsEnabled = true;
+            }
+        }
+
+        private void BtnUpdateDismiss_Click(object sender, RoutedEventArgs e)
+        {
+            UpdateBanner.Visibility = Visibility.Collapsed;
+        }
+
+        // --- STANDARD APP LOGIC ---
         private void BtnBrowseSource_Click(object sender, RoutedEventArgs e)
         {
             var dialog = new OpenFolderDialog { InitialDirectory = TxtSourcePath.Text };
@@ -415,217 +518,4 @@ namespace KarzaConsolidator
                         foreach (var m in fy) ws.Cell(2, colIdx++).SetValue(m).Style.Font.SetBold(true);
                         
                         ws.Cell(2, colIdx).SetValue($"{fy.Key} Total").Style.Font.SetBold(true).Font.FontColor = XLColor.AirForceBlue;
-                        ws.Range(1, startCol, 1, colIdx).Merge().SetValue(fy.Key).Style.Font.SetBold(true).Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
-                        
-                        if (colIdx - 1 >= startCol) ws.Columns(startCol, colIdx - 1).Group();
-                        fyTotalCols.Add(GetColLetter(colIdx));
-                        colIdx++;
-                    }
-                    ws.Cell(2, colIdx).SetValue("Grand Total").Style.Font.SetBold(true);
-
-                    int dataRow = 3;
-                    var groupedByPan = matrixData.Where(m => m.Type == mCfg.TypeTarget)
-                        .GroupBy(m => m.PAN)
-                        .OrderByDescending(g => g.Sum(m => mCfg.ValTarget == "T" ? m.Taxable : m.Invoice))
-                        .ToList();
-
-                    foreach (var panGroup in groupedByPan)
-                    {
-                        string firstPartyName = panGroup.First().Name;
-                        bool isRp = panGroup.First().IsRelatedParty;
-
-                        ws.Cell(dataRow, 1).SetValue(firstPartyName).Style.Font.SetBold(true);
-                        ws.Cell(dataRow, 2).SetValue(panGroup.Key).Style.Font.SetBold(true);
-                        ws.Row(dataRow).Style.Fill.BackgroundColor = isRp ? XLColor.FromHtml("#FFF2CC") : XLColor.FromHtml("#E1E1E1");
-
-                        colIdx = 3;
-                        foreach (var fy in fyGroups)
-                        {
-                            int startCol = colIdx;
-                            foreach (var m in fy)
-                            {
-                                double v = panGroup.Where(g => g.Month == m).Sum(g => mCfg.ValTarget == "T" ? g.Taxable : g.Invoice);
-                                if (v > 0) ws.Cell(dataRow, colIdx).SetValue(v);
-                                colIdx++;
-                            }
-                            ws.Cell(dataRow, colIdx).FormulaA1 = $"=SUM({GetColLetter(startCol)}{dataRow}:{GetColLetter(colIdx - 1)}{dataRow})";
-                            ws.Cell(dataRow, colIdx).Style.Font.SetBold(true);
-                            colIdx++;
-                        }
-                        ws.Cell(dataRow, colIdx).FormulaA1 = "=" + string.Join("+", fyTotalCols.Select(c => $"{c}{dataRow}"));
-                        ws.Cell(dataRow, colIdx).Style.Font.SetBold(true);
-                        
-                        int parentRow = dataRow;
-                        dataRow++;
-
-                        var groupedByState = panGroup.GroupBy(g => g.State).ToList();
-                        foreach (var stateGroup in groupedByState)
-                        {
-                            ws.Cell(dataRow, 1).SetValue($"   >> {stateGroup.Key}");
-                            colIdx = 3;
-                            foreach (var fy in fyGroups)
-                            {
-                                int startCol = colIdx;
-                                foreach (var m in fy)
-                                {
-                                    double v = stateGroup.Where(g => g.Month == m).Sum(g => mCfg.ValTarget == "T" ? g.Taxable : g.Invoice);
-                                    if (v > 0) ws.Cell(dataRow, colIdx).SetValue(v);
-                                    colIdx++;
-                                }
-                                ws.Cell(dataRow, colIdx).FormulaA1 = $"=SUM({GetColLetter(startCol)}{dataRow}:{GetColLetter(colIdx - 1)}{dataRow})";
-                                ws.Cell(dataRow, colIdx).Style.Font.SetBold(true);
-                                colIdx++;
-                            }
-                            ws.Cell(dataRow, colIdx).FormulaA1 = "=" + string.Join("+", fyTotalCols.Select(c => $"{c}{dataRow}"));
-                            ws.Cell(dataRow, colIdx).Style.Font.SetBold(true);
-                            dataRow++;
-                        }
-                        ws.Rows(parentRow + 1, dataRow - 1).Group();
-                    }
-                    ws.Columns().AdjustToContents();
-                    ws.RangeUsed().Style.NumberFormat.Format = "#,##0.00";
-                    ws.Column(1).Style.NumberFormat.Format = "@";
-                    ws.Column(2).Style.NumberFormat.Format = "@";
-                }
-
-                prog.Report(new UiProgressReport("COMPILE", 100, "Finalizing ledger metadata profiles..."));
-                var wsGlossary = outWb.Worksheets.Add("Audit_Glossary");
-                wsGlossary.Cell("A1").SetValue("Reporting Ledger Color Key").Style.Font.SetBold(true);
-                wsGlossary.Cell("A3").Style.Fill.BackgroundColor = XLColor.FromHtml("#FFF2CC");
-                wsGlossary.Cell("B3").SetValue("Related Party Configuration / Subledger Identifiers");
-                wsGlossary.Cell("A4").Style.Fill.BackgroundColor = XLColor.FromHtml("#E1E1E1");
-                wsGlossary.Cell("B4").SetValue("Third-Party Verified Operational Vectors");
-                wsGlossary.Cell("A5").Style.Fill.BackgroundColor = XLColor.FromHtml("#FFF2CC");
-                wsGlossary.Cell("A5").Style.Font.Italic = true;
-                wsGlossary.Cell("B5").SetValue("GSTR1 Operational Fallback Values (Triggered when explicit GSTR3B data is filed as missing or 0)");
-                wsGlossary.Columns().AdjustToContents();
-
-                outWb.SaveAs(outputPath);
-                prog.Report(new UiProgressReport("LOG", 100, $"Export Complete: {outputName}"));
-            }
-        }
-
-        private static string NormalizeEntityName(string name)
-        {
-            if (string.IsNullOrWhiteSpace(name)) return "UNKNOWN_ENTITY";
-
-            name = name.ToUpperInvariant().Trim();
-
-            name = Regex.Replace(name, @"\b(?:PRIVATE|PVT\.?|\(P\))\s*(?:LIMITED|LTD\.?)\b", "PVT LTD");
-            name = Regex.Replace(name, @"\b(?:LIMITED|LTD\.?)\b", "LTD");
-
-            name = Regex.Replace(name, @"\s+", " ");
-            name = Regex.Replace(name, @"[\\/:*?""<>|]", "_");
-
-            return name.Trim();
-        }
-
-        private static string GetFinancialYear(string mmmYY)
-        {
-            var dt = DateTime.ParseExact(mmmYY, "MMM-yy", System.Globalization.CultureInfo.InvariantCulture);
-            if (dt.Month >= 4)
-                return $"FY{dt.ToString("yy")}-{dt.AddYears(1).ToString("yy")}";
-            else
-                return $"FY{dt.AddYears(-1).ToString("yy")}-{dt.ToString("yy")}";
-        }
-
-        private void BtnOpenFolder_Click(object sender, RoutedEventArgs e)
-        {
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = TxtDestPath.Text,
-                UseShellExecute = true,
-                Verb = "open"
-            });
-        }
-
-        private static double SafeDouble(XLCellValue value)
-        {
-            if (value.IsBlank) return 0;
-            if (value.IsNumber) return value.GetNumber();
-            string txt = value.ToString().Trim();
-            if (double.TryParse(txt, out double res)) return res;
-            return 0;
-        }
-
-        private static string GetColLetter(int n)
-        {
-            string s = "";
-            while (n > 0)
-            {
-                int m = (n - 1) % 26;
-                s = (char)(65 + m) + s;
-                n = (n - m) / 26;
-            }
-            return s;
-        }
-    }
-
-    // --- Core Architecture Domain Models ---
-    public class FileMetadata(string file, string pan, string name, string gstin, string state, string suffix)
-    {
-        public string FilePath { get; set; } = file;
-        public string PAN { get; set; } = pan;
-        public string TradeName { get; set; } = name;
-        public string GSTIN { get; set; } = gstin;
-        public string StateCode { get; set; } = state;
-        public string Suffix { get; set; } = suffix;
-    }
-
-    public class MonthData(double gt, double gi, bool fb)
-    {
-        public double GrossTaxable { get; set; } = gt;
-        public double GrossInvoice { get; set; } = gi;
-        public double InternalTaxableCustomer { get; set; } = 0;
-        public double InternalInvoiceCustomer { get; set; } = 0;
-        public double InternalTaxableSupplier { get; set; } = 0;
-        public double InternalInvoiceSupplier { get; set; } = 0;
-        public bool IsFallback { get; set; } = fb;
-    }
-
-    public class SummaryRecord(string m, string st, string t, double gt, double gi, double it, double ii, bool fb)
-    {
-        public string Month { get; set; } = m;
-        public string State { get; set; } = st;
-        public string Type { get; set; } = t;
-        public double GrossTaxable { get; set; } = gt;
-        public double GrossInvoice { get; set; } = gi;
-        public double InternalTaxable { get; set; } = it;
-        public double InternalInvoice { get; set; } = ii;
-        public bool IsFallback { get; set; } = fb;
-    }
-
-    public class MatrixRecord(string n, string p, string st, string m, double t, double i, string ty)
-    {
-        public string Name { get; set; } = n;
-        public string PAN { get; set; } = p;
-        public string State { get; set; } = st;
-        public string Month { get; set; } = m;
-        public double Taxable { get; set; } = t;
-        public double Invoice { get; set; } = i;
-        public bool IsRelatedParty { get; set; } = false;
-        public string Type { get; set; } = ty;
-    }
-
-    public class NetConfig(string sName, string target, bool iTax, string[] lbls)
-    {
-        public string SheetName { get; set; } = sName;
-        public string TypeTarget { get; set; } = target;
-        public bool IsTaxable { get; set; } = iTax;
-        public string[] Labels { get; set; } = lbls;
-    }
-
-    public class MatrixConfig(string sName, string target, string valType)
-    {
-        public string SheetName { get; set; } = sName;
-        public string TypeTarget { get; set; } = target;
-        public string ValTarget { get; set; } = valType;
-    }
-
-    public class UiProgressReport(string type, double val, string txt)
-    {
-        public string Type { get; set; } = type;
-        public double Value { get; set; } = val;
-        public string StatusText { get; set; } = txt;
-    }
-}
+                        ws.Range(1, startCol, 1,
