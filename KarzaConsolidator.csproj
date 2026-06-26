@@ -1,26 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    
-    <Version>2026.09.0</Version>
-    <Authors>Pratik Pattanaik</Authors>
-    <AssemblyTitle>Karza Deep Consolidation Engine</AssemblyTitle>
-    <Description>Enterprise Financial Data Aggregation &amp; Subledger Matrixing Tool</Description>
-    <Copyright>Copyright © Pratik Pattanaik 2026</Copyright>
-
+    <PublishAot>true</PublishAot>
+    <IsAotCompatible>true</IsAotCompatible>
+    <InvariantGlobalization>true</InvariantGlobalization>
     <PublishSingleFile>true</PublishSingleFile>
-    <SelfContained>true</SelfContained>
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.102.3" />
   </ItemGroup>
-
 </Project>
