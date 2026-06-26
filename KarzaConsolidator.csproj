@@ -7,6 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     
+    <Version>2026.09.0</Version>
     <Authors>Pratik Pattanaik</Authors>
     <AssemblyTitle>Karza Deep Consolidation Engine</AssemblyTitle>
     <Description>Enterprise Financial Data Aggregation &amp; Subledger Matrixing Tool</Description>
