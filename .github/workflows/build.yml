@@ -1,32 +1,23 @@
-name: Standalone Portable Compilation Pipeline
-
-on:
-  push:
-    branches: [ "main" ]
-  workflow_dispatch:
+name: build-windows
+on: [push]
 
 jobs:
   build-windows:
-    runs-on: windows-2022
-
+    runs-on: windows-latest
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
+      - name: Checkout Source Code Repository
+        uses: actions/checkout@v4
 
-    - name: Setup .NET Core SDK
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '8.0.x'
+      - name: Initialize .NET SDK Environment
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
 
-    - name: Restore Dependencies
-      run: dotnet restore KarzaConsolidator.csproj
+      - name: Execute Trimmed Single-File Compilation
+        run: dotnet publish KarzaConsolidator.csproj -c Release -r win-x64 --self-contained true -o ./publish
 
-    - name: Compile Standalone Portable Executable
-      # Compiles into a single portable binary package containing the runtime
-      run: dotnet publish KarzaConsolidator.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./publish
-
-    - name: Upload Portable Executable Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: Karza-Consolidation-Engine-v2026
-        path: ./publish/KarzaConsolidator.exe
+      - name: Package Optimized Binary Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: KarzaEngine-Trimmed-Win64
+          path: ./publish/*.exe
