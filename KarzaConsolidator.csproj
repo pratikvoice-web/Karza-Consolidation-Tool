@@ -1,16 +1,28 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <PublishAot>true</PublishAot>
-    <IsAotCompatible>true</IsAotCompatible>
-    <InvariantGlobalization>true</InvariantGlobalization>
+    
+    <Version>2026.09.0</Version>
+    <Authors>Pratik Pattanaik</Authors>
+    <AssemblyTitle>Karza Deep Consolidation Engine</AssemblyTitle>
+
     <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode> 
+    
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.102.3" />
   </ItemGroup>
+
 </Project>
