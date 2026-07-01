@@ -56,7 +56,6 @@ namespace KarzaConsolidator
                 {
                     string tag = release.GetProperty("tag_name").GetString() ?? string.Empty;
                     
-                    // CRITICAL VECTOR SAFETY FILTER: Validates variant target constraints
                     if (tag.EndsWith("-main", StringComparison.OrdinalIgnoreCase))
                     {
                         if (tag != CurrentAppVersion)
@@ -450,7 +449,7 @@ del ""%~f0""";
 
                 // 1. Compile the Index Sheet
                 var wsIndex = outWb.Worksheets.Add("Index");
-                wsIndex.Views.FreezeRows(0);
+                wsIndex.SheetView.FreezeRows(0);
                 wsIndex.Cell("A1").SetValue("Consolidated GST Karza").Style.Font.SetBold(true).Font.SetFontSize(16).Font.SetFontColor(slatePrimary);
                 
                 var profileRange = wsIndex.Range("A3:B4");
@@ -568,7 +567,7 @@ del ""%~f0""";
                                     if (rowContainsFallback && block != "Internal" && cellValue > 0)
                                     {
                                         targetCell.Style.Font.Italic = true;
-                                        targetCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#FEF3C7"); // soft amber
+                                        targetCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#FEF3C7"); 
                                     }
                                 }
                                 ws.Cell(dataRow, colIdx).FormulaA1 = $"=SUM(B{dataRow}:{GetColLetter(colIdx - 1)}{dataRow})";
@@ -595,7 +594,7 @@ del ""%~f0""";
                     ws.Columns().AdjustToContents();
                     ws.RangeUsed().Style.NumberFormat.Format = "#,##0.00";
                     ws.Column(1).Style.NumberFormat.Format = "@";
-                    ws.SheetView.Worksheet.Views.FreezeRows(1);
+                    ws.SheetView.FreezeRows(1);
                 }
 
                 var matrixConfigs = new[]
@@ -726,7 +725,7 @@ del ""%~f0""";
                     ws.RangeUsed().Style.NumberFormat.Format = "#,##0.00";
                     ws.Column(1).Style.NumberFormat.Format = "@";
                     ws.Column(2).Style.NumberFormat.Format = "@";
-                    ws.SheetView.Worksheet.Views.FreezeColumns(2);
+                    ws.SheetView.FreezeColumns(2);
                 }
 
                 prog.Report(new UiProgressReport("COMPILE", 100, "Finalizing ledger metadata profiles..."));
