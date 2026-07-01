@@ -495,7 +495,7 @@ func (a *App) ExecuteConsolidation(inputFolder, outputFolder string) string {
 						for r := startGroup; r <= dataRow-1; r++ {
 							_ = outWb.SetRowOutlineLevel(cfg.SheetName, r, 1)
 						}
-						for c := 2; c < colSub; c++ {
+						for c := 2; c <= cCol; c++ {
 							cL := GetColumnLetter(c)
 							targetCell := fmt.Sprintf("%s%d", cL, fyRow)
 							_ = outWb.SetCellFormula(cfg.SheetName, targetCell, fmt.Sprintf("=SUM(%s%d:%s%d)", cL, startGroup, cL, dataRow-1))
