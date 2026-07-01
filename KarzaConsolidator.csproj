@@ -16,6 +16,7 @@
     
     <PublishTrimmed>true</PublishTrimmed>
     <TrimMode>partial</TrimMode> 
+    <_SuppressWpfTrimError>true</_SuppressWpfTrimError>
     
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
