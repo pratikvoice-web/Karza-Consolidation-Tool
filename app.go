@@ -96,7 +96,7 @@ func NormalizeEntityName(name string) string {
 }
 
 func GetFinancialYear(mmmYY string) string {
-	t, err := time.Parse("Jan-02", mmmYY)
+	t, err := time.Parse("Jan-06", mmmYY)
 	if err != nil {
 		return "FY_UNKNOWN"
 	}
@@ -155,7 +155,7 @@ func (a *App) ExecuteConsolidation(inputFolder, outputFolder string) string {
 	}
 
 	if len(excelFiles) == 0 {
-		return "No target Karza analytical files found in selected directory source."
+		return "No target Karza source ledger files discovered inside target directory."
 	}
 
 	var fileDataList []FileMetadata
@@ -217,7 +217,7 @@ func (a *App) ExecuteConsolidation(inputFolder, outputFolder string) string {
 		currentPan := items[0].PAN
 		currentName := items[0].TradeName
 
-		runtime.EventsEmit(a.ctx, "log", fmt.Sprintf("Processing data constraints for entity: %s (%s)", currentName, currentPan))
+		runtime.EventsEmit(a.ctx, "log", fmt.Sprintf("Processing Profile Boundaries for Entity: %s", currentName))
 
 		stateCounts := make(map[string]int)
 		for _, item := range items {
@@ -240,7 +240,7 @@ func (a *App) ExecuteConsolidation(inputFolder, outputFolder string) string {
 			}
 
 			pct := (float64(idx+1) / float64(len(items))) * 100
-			runtime.EventsEmit(a.ctx, "extract", map[string]interface{}{"val": pct, "txt": fmt.Sprintf("Extracting: %s", stHead)})
+			runtime.EventsEmit(a.ctx, "extract", map[string]interface{}{"val": pct, "txt": fmt.Sprintf("Extracting Layer (%d/%d): %s", idx+1, len(items), stHead)})
 
 			wb, err := excelize.OpenFile(item.FilePath)
 			if err != nil {
@@ -364,6 +364,7 @@ func (a *App) ExecuteConsolidation(inputFolder, outputFolder string) string {
 				summaryData = append(summaryData, SummaryRecord{Month: m, State: stHead, Type: "Supplier", GrossTaxable: d.GrossTaxable, GrossInvoice: d.GrossInvoice, InternalTaxable: d.InternalTaxableSupplier, InternalInvoice: d.InternalInvoiceSupplier, IsFallback: d.IsFallback})
 			}
 		}
+		runtime.EventsEmit(a.ctx, "extract", map[string]interface{}{"val": 100.0, "txt": "Ledger extraction pass completed safely."})
 
 		for idx, md := range matrixData {
 			matrixData[idx].IsRelatedParty = relatedPANs[md.PAN]
@@ -439,9 +440,9 @@ func (a *App) ExecuteConsolidation(inputFolder, outputFolder string) string {
 		numStyle, _ := outWb.NewStyle(&excelize.Style{CustomNumFmt: &[]string{"#,##0.00"}[0]})
 
 		for cIdx, cfg := range netConfigs {
-			runtime.EventsEmit(a.ctx, "compile", map[string]interface{}{"val": (float64(cIdx+1) / 10.0) * 100, "txt": fmt.Sprintf("Writing Array: %s", cfg.SheetName)})
+			runtime.EventsEmit(a.ctx, "compile", map[string]interface{}{"val": (float64(cIdx+1) / 10.0) * 100, "txt": fmt.Sprintf("Writing Array Map: %s", cfg.SheetName)})
 			_, _ = outWb.NewSheet(cfg.SheetName)
-			addToIndex(cfg.SheetName, fmt.Sprintf("Monthly Aggregation Map - %s", cfg.SheetName))
+			addToIndex(cfg.SheetName, fmt.Sprintf("Monthly Summary - %s", cfg.SheetName))
 
 			rowTracker := 1
 			for _, block := range []string{"Gross", "Internal", "Net"} {
@@ -494,7 +495,7 @@ func (a *App) ExecuteConsolidation(inputFolder, outputFolder string) string {
 						for r := startGroup; r <= dataRow-1; r++ {
 							_ = outWb.SetRowOutlineLevel(cfg.SheetName, r, 1)
 						}
-						for c := 2; c <= cCol; c++ {
+						for c := 2; c < colSub; c++ {
 							cL := GetColumnLetter(c)
 							targetCell := fmt.Sprintf("%s%d", cL, fyRow)
 							_ = outWb.SetCellFormula(cfg.SheetName, targetCell, fmt.Sprintf("=SUM(%s%d:%s%d)", cL, startGroup, cL, dataRow-1))
@@ -514,9 +515,9 @@ func (a *App) ExecuteConsolidation(inputFolder, outputFolder string) string {
 		}
 
 		for mIdx, mCfg := range matrixConfigs {
-			runtime.EventsEmit(a.ctx, "compile", map[string]interface{}{"val": (float64(mIdx+5) / 10.0) * 100, "txt": fmt.Sprintf("Writing Matrix: %s", mCfg.SheetName)})
+			runtime.EventsEmit(a.ctx, "compile", map[string]interface{}{"val": (float64(mIdx+5) / 10.0) * 100, "txt": fmt.Sprintf("Writing Subledger Layout: %s", mCfg.SheetName)})
 			_, _ = outWb.NewSheet(mCfg.SheetName)
-			addToIndex(mCfg.SheetName, fmt.Sprintf("Detailed Subledger Matrix - %s", mCfg.SheetName))
+			addToIndex(mCfg.SheetName, fmt.Sprintf("Detailed Party-wise Subledger (%s)", mCfg.Target))
 
 			_ = outWb.SetCellValue(mCfg.SheetName, "A1", "Financial Year")
 			_ = outWb.SetCellValue(mCfg.SheetName, "A2", "Party / State")
@@ -616,10 +617,10 @@ func (a *App) ExecuteConsolidation(inputFolder, outputFolder string) string {
 			}
 		}
 
-		runtime.EventsEmit(a.ctx, "log", "Finalizing formatting properties...")
+		runtime.EventsEmit(a.ctx, "compile", map[string]interface{}{"val": 100.0, "txt": "Finalizing ledger metadata profiles..."})
 		
 		_, _ = outWb.NewSheet("Audit_Glossary")
-		addToIndex("Audit_Glossary", "Reporting Color Key Metrics Metadata")
+		addToIndex("Audit_Glossary", "Reporting Ledger Color Key & System Glossary")
 
 		boldStyle, _ := outWb.NewStyle(&excelize.Style{Font: &excelize.Font{Bold: true}})
 		fillYellow, _ := outWb.NewStyle(&excelize.Style{Fill: excelize.Fill{Type: "pattern", Color: []string{"#FFF2CC"}, Pattern: 1}})
