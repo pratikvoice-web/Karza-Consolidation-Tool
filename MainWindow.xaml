@@ -36,7 +36,7 @@
             </Grid>
         </Border>
 
-        <StackPanel Grid.Row="2" Margin="0,0,0,15">
+        <StackPanel Grid.Row="2" Margin="0,0,0,0">
             <TextBlock Text="Source Directory Path (Raw Karza State Reports)" FontSize="12" FontWeight="Bold" Foreground="#334155" Margin="0,0,0,6"/>
             <Grid Margin="0,0,0,15">
                 <Grid.ColumnDefinitions>
@@ -48,7 +48,7 @@
             </Grid>
 
             <TextBlock Text="Destination Output Directory Path (Consolidated Ledger Export Destination)" FontSize="12" FontWeight="Bold" Foreground="#334155" Margin="0,0,0,6"/>
-            <Grid>
+            <Grid Margin="0,0,0,15">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
@@ -70,7 +70,7 @@
                 <TextBlock x:Name="LblCompileStatus" Text="Analytical Ledger Compilation: Execution Idle" FontSize="11" FontWeight="SemiBold" Foreground="#475569" Margin="0,0,0,5"/>
                 <ProgressBar x:Name="ProgressCompile" Height="12" Minimum="0" Maximum="100" Foreground="#D946EF" Background="#E2E8F0" BorderThickness="0"/>
             </StackPanel>
-            <Button x:Name="BtnRun" Grid.Column="1" Content="Execute Engine" Padding="35,0" Margin="25,0,0,0" FontSize="14" FontWeight="Bold" Foreground="White" Background="#0EA5E9" BorderThickness="0" Click="BtnRun_Click"/>
+            <Button x:Name="BtnRun" Grid.Column="1" Content="Execute Engine" Padding="35,0" Margin="25,0,0,0" FontSize="14" FontWeight="Bold" Foreground="White" Background="#0EA5E9" BorderThickness="0" Click="BtnRun_Click" Height="65"/>
         </Grid>
 
         <GroupBox Grid.Row="4" Header="Live Process Pipeline Audit Log" FontSize="11" FontWeight="Bold" Foreground="#475569" Margin="0,0,0,15">
