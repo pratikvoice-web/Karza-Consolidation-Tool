@@ -1,0 +1,12 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "KarzaConsolidator",
+  "outputfilename": "KarzaConsolidator.exe",
+  "frontend:dir": "frontend",
+  "frontend:install": "echo No Install Required",
+  "frontend:build": "echo No Build Required",
+  "author": {
+    "name": "Pratik Pattanaik",
+    "email": "pratikvoice@github"
+  }
+}
