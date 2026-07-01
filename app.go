@@ -71,7 +71,7 @@ type MatrixRecord struct {
 var StateMap = map[string]string{
 	"01": "J&K", "02": "HP", "03": "Punjab", "04": "Chandigarh", "05": "Uttarakhand",
 	"06": "Haryana", "07": "Delhi", "08": "Rajasthan", "09": "UP", "10": "Bihar",
-	"11": "Sikkim", "12": "Arunachal", "13": "Nagaland", "14", "Manipur", "15": "Mizoram",
+	"11": "Sikkim", "12": "Arunachal", "13": "Nagaland", "14": "Manipur", "15": "Mizoram",
 	"16": "Tripura", "17": "Meghalaya", "18": "Assam", "19": "WB", "20": "Jharkhand",
 	"21": "Odisha", "22": "Chhattisgarh", "23": "MP", "24": "Gujarat", "26": "DNHDD",
 	"27": "Maharashtra", "29": "Karnataka", "30": "Goa", "31": "Lakshadweep", "32": "Kerala",
@@ -130,7 +130,7 @@ func GetColumnLetter(col int) string {
 }
 
 func (a *App) SelectDirectory() string {
-	res, err := runtime.OpenDirectoryDialog(a.ctx, runtime.DirectoryDialogOptions{
+	res, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
 		Title: "Select Target Operation Directory Base",
 	})
 	if err != nil {
@@ -383,7 +383,7 @@ func (a *App) ExecuteConsolidation(inputFolder, outputFolder string) string {
 		for _, m := range matrixData { monthSet[m.Month] = true }
 		var uniqueMonths []string
 		for m := range monthSet { if m != "" { uniqueMonths = append(uniqueMonths, m) } }
-		sort.Slice(uniqueMonths, func(i, j bool) bool {
+		sort.Slice(uniqueMonths, func(i, j int) bool {
 			ti, _ := time.Parse("Jan-02", uniqueMonths[i])
 			tj, _ := time.Parse("Jan-02", uniqueMonths[j])
 			return ti.Before(tj)
@@ -557,7 +557,7 @@ func (a *App) ExecuteConsolidation(inputFolder, outputFolder string) string {
 				for _, r := range v { if mCfg.ValType == "T" { tot += r.Taxable } else { tot += r.Invoice } }
 				rankedList = append(rankedList, RankedPan{Key: k, Total: tot})
 			}
-			sort.Slice(rankedList, func(i, j bool) bool { return rankedList[i].Total > rankedList[j].Total })
+			sort.Slice(rankedList, func(i, j int) bool { return rankedList[i].Total > rankedList[j].Total })
 
 			dataRow := 3
 			for _, rp := range rankedList {
