@@ -4,12 +4,6 @@
         Title="Karza Deep Consolidation Engine v2026.09" Height="680" Width="850" Background="#F1F5F9" WindowStartupLocation="CenterScreen">
     <Grid Margin="20">
         <Grid.RowDefinitions>
-            <Window x:Class="KarzaConsolidator.MainWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Karza Deep Consolidation Engine v2026.09" Height="680" Width="850" Background="#F1F5F9" WindowStartupLocation="CenterScreen">
-    <Grid Margin="20">
-        <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
