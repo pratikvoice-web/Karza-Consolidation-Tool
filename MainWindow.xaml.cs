@@ -15,7 +15,7 @@ namespace KarzaConsolidator
 {
     public partial class MainWindow : Window
     {
-        private const string CurrentAppVersion = "v2026.09";
+        private const string CurrentAppVersion = "v2029.10.0-main";
         private const string GithubRepository = "pratikvoice-web/Karza-Consolidation-Tool";
         private string _updateDownloadUrl = string.Empty;
 
@@ -49,7 +49,6 @@ namespace KarzaConsolidator
                 using var client = new HttpClient();
                 client.DefaultRequestHeaders.Add("User-Agent", "Karza-Consolidator-AutoUpdater");
                 
-                // Fetch full history to scan past variant tags
                 string response = await client.GetStringAsync($"https://api.github.com/repos/{GithubRepository}/releases");
                 using var doc = JsonDocument.Parse(response);
                 
@@ -57,7 +56,7 @@ namespace KarzaConsolidator
                 {
                     string tag = release.GetProperty("tag_name").GetString() ?? string.Empty;
                     
-                    // Filter down to match main track variables only
+                    // CRITICAL VECTOR SAFETY FILTER: Validates variant target constraints
                     if (tag.EndsWith("-main", StringComparison.OrdinalIgnoreCase))
                     {
                         if (tag != CurrentAppVersion)
@@ -82,7 +81,7 @@ namespace KarzaConsolidator
                                 });
                             }
                         }
-                        break; // Stop immediately once the newest main variant is evaluated
+                        break; 
                     }
                 }
             }
@@ -101,7 +100,6 @@ namespace KarzaConsolidator
             BtnUpdateNow.IsEnabled = false;
             BtnUpdateDismiss.IsEnabled = false;
             BtnRun.IsEnabled = false;
-            
             ProgressUpdate.Visibility = Visibility.Visible;
             ProgressUpdate.Value = 0;
 
@@ -443,31 +441,51 @@ del ""%~f0""";
                 string outputPath = Path.Combine(outputFolder, outputName);
                 using var outWb = new XLWorkbook();
 
+                // Style Master Palettes
+                var slatePrimary = XLColor.FromHtml("#0F172A"); 
+                var slateAccent = XLColor.FromHtml("#1E293B");  
+                var lightHighlight = XLColor.FromHtml("#F8FAFC");
+                var lightBorder = XLColor.FromHtml("#E2E8F0");
+                var linkColor = XLColor.FromHtml("#0284C7");
+
+                // 1. Compile the Index Sheet
                 var wsIndex = outWb.Worksheets.Add("Index");
-                wsIndex.Cell("A1").SetValue("Consolidated GST Karza").Style.Font.SetBold(true).Font.SetFontSize(16);
-                wsIndex.Cell("A3").SetValue("Entity Name:").Style.Font.SetBold(true);
-                wsIndex.Cell("B3").SetValue(currentName);
-                wsIndex.Cell("A4").SetValue("PAN:").Style.Font.SetBold(true);
+                wsIndex.Views.FreezeRows(0);
+                wsIndex.Cell("A1").SetValue("Consolidated GST Karza").Style.Font.SetBold(true).Font.SetFontSize(16).Font.SetFontColor(slatePrimary);
+                
+                var profileRange = wsIndex.Range("A3:B4");
+                profileRange.Style.Border.SetOutsideBorder(XLBorderStyleValues.Thin).Border.SetOutsideBorderColor(lightBorder);
+                
+                wsIndex.Cell("A3").SetValue("Entity Name:").Style.Font.SetBold(true).Font.SetFontColor(slateAccent);
+                wsIndex.Cell("B3").SetValue(currentName).Style.Font.SetBold(true);
+                wsIndex.Cell("A4").SetValue("PAN:").Style.Font.SetBold(true).Font.SetFontColor(slateAccent);
                 wsIndex.Cell("B4").SetValue(currentPan);
 
-                wsIndex.Cell("A6").SetValue("Table of Contents").Style.Font.SetBold(true).Font.SetFontSize(14);
-                wsIndex.Cell("A7").SetValue("S.No").Style.Font.SetBold(true);
-                wsIndex.Cell("B7").SetValue("Sheet Name").Style.Font.SetBold(true);
-                wsIndex.Cell("C7").SetValue("Description").Style.Font.SetBold(true);
-                wsIndex.Range("A7:C7").Style.Fill.BackgroundColor = XLColor.FromHtml("#E2E8F0");
+                wsIndex.Cell("A6").SetValue("Table of Contents").Style.Font.SetBold(true).Font.SetFontSize(13).Font.SetFontColor(slatePrimary);
+                wsIndex.Cell("A7").SetValue("S.No").Style.Font.SetBold(true).Font.SetFontColor(XLColor.White);
+                wsIndex.Cell("B7").SetValue("Sheet Name").Style.Font.SetBold(true).Font.SetFontColor(XLColor.White);
+                wsIndex.Cell("C7").SetValue("Description").Style.Font.SetBold(true).Font.SetFontColor(XLColor.White);
+                
+                var idxHeaderRange = wsIndex.Range("A7:C7");
+                idxHeaderRange.Style.Fill.BackgroundColor = slatePrimary;
+                idxHeaderRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
                 int indexRow = 8;
                 int sheetCount = 1;
 
                 Action<string, string> AddToIndex = (sheetName, description) =>
                 {
-                    wsIndex.Cell(indexRow, 1).SetValue(sheetCount);
+                    wsIndex.Cell(indexRow, 1).SetValue(sheetCount).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
                     var linkCell = wsIndex.Cell(indexRow, 2);
                     linkCell.SetValue(sheetName);
                     linkCell.SetHyperlink(new XLHyperlink($"'{sheetName}'!A1"));
-                    linkCell.Style.Font.FontColor = XLColor.RoyalBlue;
+                    linkCell.Style.Font.FontColor = linkColor;
                     linkCell.Style.Font.Underline = XLFontUnderlineValues.Single;
+                    linkCell.Style.Font.SetBold(true);
+                    
                     wsIndex.Cell(indexRow, 3).SetValue(description);
+                    wsIndex.Row(indexRow).Height = 20;
+                    wsIndex.Range(indexRow, 1, indexRow, 3).Style.Border.SetBottomBorder(XLBorderStyleValues.Thin).Border.SetBottomBorderColor(lightBorder);
                     indexRow++;
                     sheetCount++;
                 };
@@ -476,8 +494,8 @@ del ""%~f0""";
                 {
                     new NetConfig("Tax. Value - Internal Sales", "Customer", true, new[] { "Gross Revenue - Taxable Value", "Internal Sales - Taxable Value", "Net Revenue - Taxable Value" }),
                     new NetConfig("Inv. Value - Internal Sales", "Customer", false, new[] { "Gross Revenue - Invoice Value", "Internal Sales - Invoice Value", "Net Revenue - Invoice Value" }),
-                    new NetConfig("Tax. Value - Internal Purchases", "Supplier", true, new[] { "Gross Revenue - Taxable Value", "Internal Purchases - Taxable Value", "Net Revenue - Taxable Value" }),
-                    new NetConfig("Inv. Value - Internal Purchases", "Supplier", false, new[] { "Gross Revenue - Invoice Value", "Internal Purchases - Invoice Value", "Net Revenue - Invoice Value" })
+                    new NetConfig("Tax. Value - Internal Purchases", "Supplier", true, new[] { "Gross Purchases - Taxable Value", "Internal Purchases - Taxable Value", "Net Purchases - Taxable Value" }),
+                    new NetConfig("Inv. Value - Internal Purchases", "Supplier", false, new[] { "Gross Purchases - Invoice Value", "Internal Purchases - Invoice Value", "Net Purchases - Invoice Value" })
                 };
 
                 int compStep = 0;
@@ -485,34 +503,48 @@ del ""%~f0""";
                 {
                     prog.Report(new UiProgressReport("COMPILE", ((double)++compStep / 10) * 100, $"Writing Array Map: {cfg.SheetName}"));
                     var ws = outWb.Worksheets.Add(cfg.SheetName);
-                    AddToIndex(cfg.SheetName, $"Monthly Summary - {cfg.Labels[2].Replace("Net Revenue - ", "")}");
+                    AddToIndex(cfg.SheetName, $"Monthly Summary Matrix - {cfg.Labels[2].Replace("Net Revenue - ", "").Replace("Net Purchases - ", "")}");
                     ws.Outline.SummaryVLocation = XLOutlineSummaryVLocation.Top;
                     int rowTracker = 1;
 
                     foreach (var block in new[] { "Gross", "Internal", "Net" })
                     {
                         string headerLabel = block == "Gross" ? cfg.Labels[0] : block == "Internal" ? cfg.Labels[1] : cfg.Labels[2];
-                        ws.Cell(rowTracker, 1).SetValue(headerLabel).Style.Font.SetBold(true);
-                        ws.Cell(rowTracker + 1, 1).SetValue("Financial Year / Month").Style.Font.SetBold(true);
+                        
+                        ws.Cell(rowTracker, 1).SetValue(headerLabel).Style.Font.SetBold(true).Font.SetFontSize(12).Font.SetFontColor(slatePrimary);
+                        ws.Row(rowTracker).Height = 24;
+                        
+                        var tableHeaderRow = rowTracker + 1;
+                        ws.Cell(tableHeaderRow, 1).SetValue("Financial Year / Month").Style.Font.SetBold(true).Font.SetFontColor(XLColor.White);
+                        ws.Row(tableHeaderRow).Height = 22;
 
                         int colIdx = 2;
-                        foreach (var st in uniqueStates) ws.Cell(rowTracker + 1, colIdx++).SetValue(st).Style.Font.SetBold(true);
-                        ws.Cell(rowTracker + 1, colIdx).SetValue("Total").Style.Font.SetBold(true);
+                        foreach (var st in uniqueStates)
+                        {
+                            ws.Cell(tableHeaderRow, colIdx++).SetValue(st).Style.Font.SetBold(true).Font.SetFontColor(XLColor.White);
+                        }
+                        ws.Cell(tableHeaderRow, colIdx).SetValue("Total").Style.Font.SetBold(true).Font.SetFontColor(XLColor.White);
+                        
+                        var headerRange = ws.Range(tableHeaderRow, 1, tableHeaderRow, colIdx);
+                        headerRange.Style.Fill.BackgroundColor = slateAccent;
+                        headerRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+                        
                         int maxColIdx = colIdx;
-
                         int dataRow = rowTracker + 2;
 
                         foreach (var fy in fyGroups)
                         {
                             int fyRow = dataRow;
-                            ws.Cell(fyRow, 1).SetValue(fy.Key).Style.Font.SetBold(true);
-                            ws.Row(fyRow).Style.Fill.BackgroundColor = XLColor.FromHtml("#F1F5F9");
+                            ws.Cell(fyRow, 1).SetValue(fy.Key).Style.Font.SetBold(true).Font.SetFontColor(slatePrimary);
+                            ws.Row(fyRow).Style.Fill.BackgroundColor = lightHighlight;
+                            ws.Row(fyRow).Height = 20;
                             dataRow++;
                             int startGroupRow = dataRow;
 
                             foreach (var m in fy)
                             {
                                 ws.Cell(dataRow, 1).SetValue(m).Style.NumberFormat.Format = "@";
+                                ws.Row(dataRow).Height = 18;
                                 colIdx = 2;
                                 bool rowContainsFallback = false;
 
@@ -536,10 +568,13 @@ del ""%~f0""";
                                     if (rowContainsFallback && block != "Internal" && cellValue > 0)
                                     {
                                         targetCell.Style.Font.Italic = true;
-                                        targetCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#FFF2CC");
+                                        targetCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#FEF3C7"); // soft amber
                                     }
                                 }
                                 ws.Cell(dataRow, colIdx).FormulaA1 = $"=SUM(B{dataRow}:{GetColLetter(colIdx - 1)}{dataRow})";
+                                ws.Cell(dataRow, colIdx).Style.Font.SetBold(true);
+                                
+                                ws.Range(dataRow, 1, dataRow, colIdx).Style.Border.SetBottomBorder(XLBorderStyleValues.Thin).Border.SetBottomBorderColor(lightBorder);
                                 dataRow++;
                             }
 
@@ -548,9 +583,11 @@ del ""%~f0""";
                                 ws.Rows(startGroupRow, dataRow - 1).Group();
                                 for (int c = 2; c <= maxColIdx; c++)
                                 {
-                                    ws.Cell(fyRow, c).FormulaA1 = $"=SUM({GetColLetter(c)}{startGroupRow}:{GetColLetter(c)}{dataRow - 1})";
-                                    ws.Cell(fyRow, c).Style.Font.SetBold(true);
+                                    var summaryCell = ws.Cell(fyRow, c);
+                                    summaryCell.FormulaA1 = $"=SUM({GetColLetter(c)}{startGroupRow}:{GetColLetter(c)}{dataRow - 1})";
+                                    summaryCell.Style.Font.SetBold(true).Font.SetFontColor(slatePrimary);
                                 }
+                                ws.Range(fyRow, 1, fyRow, maxColIdx).Style.Border.SetBottomBorder(XLBorderStyleValues.Thin).Border.SetBottomBorderColor(slateAccent);
                             }
                         }
                         rowTracker = dataRow + 2;
@@ -558,6 +595,7 @@ del ""%~f0""";
                     ws.Columns().AdjustToContents();
                     ws.RangeUsed().Style.NumberFormat.Format = "#,##0.00";
                     ws.Column(1).Style.NumberFormat.Format = "@";
+                    ws.SheetView.Worksheet.Views.FreezeRows(1);
                 }
 
                 var matrixConfigs = new[]
@@ -572,13 +610,16 @@ del ""%~f0""";
                 {
                     prog.Report(new UiProgressReport("COMPILE", ((double)++compStep / 10) * 100, $"Writing Subledger Layout: {mCfg.SheetName}"));
                     var ws = outWb.Worksheets.Add(mCfg.SheetName);
-                    AddToIndex(mCfg.SheetName, $"Detailed Party-wise Subledger ({mCfg.TypeTarget})");
+                    AddToIndex(mCfg.SheetName, $"Detailed Party-wise Subledger Transaction Array ({mCfg.TypeTarget})");
                     ws.Outline.SummaryVLocation = XLOutlineSummaryVLocation.Top;
                     ws.Outline.SummaryHLocation = XLOutlineSummaryHLocation.Right;
 
-                    ws.Cell(1, 1).SetValue("Financial Year").Style.Font.SetBold(true);
-                    ws.Cell(2, 1).SetValue("Party / State").Style.Font.SetBold(true);
-                    ws.Cell(2, 2).SetValue("PAN").Style.Font.SetBold(true);
+                    ws.Cell(1, 1).SetValue("Financial Year").Style.Font.SetBold(true).Font.SetFontColor(XLColor.White);
+                    ws.Cell(2, 1).SetValue("Party / State").Style.Font.SetBold(true).Font.SetFontColor(XLColor.White);
+                    ws.Cell(2, 2).SetValue("PAN").Style.Font.SetBold(true).Font.SetFontColor(XLColor.White);
+                    
+                    ws.Row(1).Height = 22;
+                    ws.Row(2).Height = 22;
 
                     int colIdx = 3;
                     var fyTotalCols = new List<string>();
@@ -586,16 +627,29 @@ del ""%~f0""";
                     foreach (var fy in fyGroups)
                     {
                         int startCol = colIdx;
-                        foreach (var m in fy) ws.Cell(2, colIdx++).SetValue(m).Style.Font.SetBold(true);
+                        foreach (var m in fy)
+                        {
+                            ws.Cell(2, colIdx++).SetValue(m).Style.Font.SetBold(true).Font.SetFontColor(XLColor.White);
+                        }
                         
-                        ws.Cell(2, colIdx).SetValue($"{fy.Key} Total").Style.Font.SetBold(true).Font.FontColor = XLColor.AirForceBlue;
-                        ws.Range(1, startCol, 1, colIdx).Merge().SetValue(fy.Key).Style.Font.SetBold(true).Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
+                        var fyTotalCell = ws.Cell(2, colIdx);
+                        fyTotalCell.SetValue($"{fy.Key} Total").Style.Font.SetBold(true).Font.SetFontColor(XLColor.White);
+                        
+                        var blockMergedRange = ws.Range(1, startCol, 1, colIdx);
+                        blockMergedRange.Merge().SetValue(fy.Key).Style.Font.SetBold(true).Font.SetFontColor(XLColor.White);
+                        blockMergedRange.Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
+                        blockMergedRange.Style.Fill.BackgroundColor = slatePrimary;
+                        
+                        ws.Range(2, startCol, 2, colIdx).Style.Fill.BackgroundColor = slateAccent;
                         
                         if (colIdx - 1 >= startCol) ws.Columns(startCol, colIdx - 1).Group();
                         fyTotalCols.Add(GetColLetter(colIdx));
                         colIdx++;
                     }
-                    ws.Cell(2, colIdx).SetValue("Grand Total").Style.Font.SetBold(true);
+                    
+                    ws.Cell(2, colIdx).SetValue("Grand Total").Style.Font.SetBold(true).Font.SetFontColor(XLColor.White);
+                    ws.Range(1, colIdx, 2, colIdx).Merge().Style.Fill.BackgroundColor = slatePrimary;
+                    ws.Cell(1, colIdx).Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
 
                     int dataRow = 3;
                     var groupedByPan = matrixData.Where(m => m.Type == mCfg.TypeTarget)
@@ -608,9 +662,12 @@ del ""%~f0""";
                         string firstPartyName = panGroup.First().Name;
                         bool isRp = panGroup.First().IsRelatedParty;
 
+                        var parentRowRange = ws.Range(dataRow, 1, dataRow, colIdx);
                         ws.Cell(dataRow, 1).SetValue(firstPartyName).Style.Font.SetBold(true);
                         ws.Cell(dataRow, 2).SetValue(panGroup.Key).Style.Font.SetBold(true);
-                        ws.Row(dataRow).Style.Fill.BackgroundColor = isRp ? XLColor.FromHtml("#FFF2CC") : XLColor.FromHtml("#E1E1E1");
+                        
+                        parentRowRange.Style.Fill.BackgroundColor = isRp ? XLColor.FromHtml("#FEF3C7") : XLColor.FromHtml("#F1F5F9");
+                        ws.Row(dataRow).Height = 20;
 
                         colIdx = 3;
                         foreach (var fy in fyGroups)
@@ -622,12 +679,16 @@ del ""%~f0""";
                                 if (v > 0) ws.Cell(dataRow, colIdx).SetValue(v);
                                 colIdx++;
                             }
-                            ws.Cell(dataRow, colIdx).FormulaA1 = $"=SUM({GetColLetter(startCol)}{dataRow}:{GetColLetter(colIdx - 1)}{dataRow})";
-                            ws.Cell(dataRow, colIdx).Style.Font.SetBold(true);
+                            var subTotalCell = ws.Cell(dataRow, colIdx);
+                            subTotalCell.FormulaA1 = $"=SUM({GetColLetter(startCol)}{dataRow}:{GetColLetter(colIdx - 1)}{dataRow})";
+                            subTotalCell.Style.Font.SetBold(true);
                             colIdx++;
                         }
-                        ws.Cell(dataRow, colIdx).FormulaA1 = "=" + string.Join("+", fyTotalCols.Select(c => $"{c}{dataRow}"));
-                        ws.Cell(dataRow, colIdx).Style.Font.SetBold(true);
+                        var grandTotalCell = ws.Cell(dataRow, colIdx);
+                        grandTotalCell.FormulaA1 = "=" + string.Join("+", fyTotalCols.Select(c => $"{c}{dataRow}"));
+                        grandTotalCell.Style.Font.SetBold(true);
+                        
+                        parentRowRange.Style.Border.SetBottomBorder(XLBorderStyleValues.Thin).Border.SetBottomBorderColor(slateAccent);
                         
                         int parentRow = dataRow;
                         dataRow++;
@@ -635,7 +696,9 @@ del ""%~f0""";
                         var groupedByState = panGroup.GroupBy(g => g.State).ToList();
                         foreach (var stateGroup in groupedByState)
                         {
-                            ws.Cell(dataRow, 1).SetValue($"   >> {stateGroup.Key}");
+                            ws.Cell(dataRow, 1).SetValue($"   » {stateGroup.Key}").Style.Font.SetItalic(true);
+                            ws.Row(dataRow).Height = 18;
+                            
                             colIdx = 3;
                             foreach (var fy in fyGroups)
                             {
@@ -646,12 +709,15 @@ del ""%~f0""";
                                     if (v > 0) ws.Cell(dataRow, colIdx).SetValue(v);
                                     colIdx++;
                                 }
-                                ws.Cell(dataRow, colIdx).FormulaA1 = $"=SUM({GetColLetter(startCol)}{dataRow}:{GetColLetter(colIdx - 1)}{dataRow})";
-                                ws.Cell(dataRow, colIdx).Style.Font.SetBold(true);
+                                var nestedSubTotal = ws.Cell(dataRow, colIdx);
+                                nestedSubTotal.FormulaA1 = $"=SUM({GetColLetter(startCol)}{dataRow}:{GetColLetter(colIdx - 1)}{dataRow})";
+                                nestedSubTotal.Style.Font.SetBold(true);
                                 colIdx++;
                             }
                             ws.Cell(dataRow, colIdx).FormulaA1 = "=" + string.Join("+", fyTotalCols.Select(c => $"{c}{dataRow}"));
                             ws.Cell(dataRow, colIdx).Style.Font.SetBold(true);
+                            
+                            ws.Range(dataRow, 1, dataRow, colIdx).Style.Border.SetBottomBorder(XLBorderStyleValues.Thin).Border.SetBottomBorderColor(lightBorder);
                             dataRow++;
                         }
                         ws.Rows(parentRow + 1, dataRow - 1).Group();
@@ -660,6 +726,7 @@ del ""%~f0""";
                     ws.RangeUsed().Style.NumberFormat.Format = "#,##0.00";
                     ws.Column(1).Style.NumberFormat.Format = "@";
                     ws.Column(2).Style.NumberFormat.Format = "@";
+                    ws.SheetView.Worksheet.Views.FreezeColumns(2);
                 }
 
                 prog.Report(new UiProgressReport("COMPILE", 100, "Finalizing ledger metadata profiles..."));
@@ -667,14 +734,23 @@ del ""%~f0""";
                 AddToIndex("Audit_Glossary", "Reporting Ledger Color Key & System Glossary");
                 wsIndex.Columns().AdjustToContents(); 
 
-                wsGlossary.Cell("A1").SetValue("Reporting Ledger Color Key").Style.Font.SetBold(true);
-                wsGlossary.Cell("A3").Style.Fill.BackgroundColor = XLColor.FromHtml("#FFF2CC");
-                wsGlossary.Cell("B3").SetValue("Related Party Configuration / Subledger Identifiers");
-                wsGlossary.Cell("A4").Style.Fill.BackgroundColor = XLColor.FromHtml("#E1E1E1");
-                wsGlossary.Cell("B4").SetValue("Third-Party Verified Operational Vectors");
-                wsGlossary.Cell("A5").Style.Fill.BackgroundColor = XLColor.FromHtml("#FFF2CC");
+                wsGlossary.Cell("A1").SetValue("Reporting Ledger Color Key").Style.Font.SetBold(true).Font.SetFontSize(14).Font.SetFontColor(slatePrimary);
+                wsGlossary.Row(1).Height = 24;
+                
+                wsGlossary.Cell("A3").Style.Fill.BackgroundColor = XLColor.FromHtml("#FEF3C7");
+                wsGlossary.Cell("A3").Style.Border.SetOutsideBorder(XLBorderStyleValues.Thin).Border.SetOutsideBorderColor(slateAccent);
+                wsGlossary.Cell("B3").SetValue("Related Party Configuration / Internal Subledger Identifiers").Style.Font.SetBold(true);
+                
+                wsGlossary.Cell("A4").Style.Fill.BackgroundColor = XLColor.FromHtml("#F1F5F9");
+                wsGlossary.Cell("A4").Style.Border.SetOutsideBorder(XLBorderStyleValues.Thin).Border.SetOutsideBorderColor(slateAccent);
+                wsGlossary.Cell("B4").SetValue("Third-Party Verified Corporate Operational Vectors");
+                
+                wsGlossary.Cell("A5").Style.Fill.BackgroundColor = XLColor.FromHtml("#FEF3C7");
                 wsGlossary.Cell("A5").Style.Font.Italic = true;
-                wsGlossary.Cell("B5").SetValue("GSTR1 Operational Fallback Values (Triggered when explicit GSTR3B data is filed as missing or 0)");
+                wsGlossary.Cell("A5").Style.Border.SetOutsideBorder(XLBorderStyleValues.Thin).Border.SetOutsideBorderColor(slateAccent);
+                wsGlossary.Cell("B5").SetValue("GSTR1 Operational Fallback Values (Triggered when explicit GSTR3B data is missing or filed as 0)");
+                
+                wsGlossary.Range("A3:A5").Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
                 wsGlossary.Columns().AdjustToContents();
 
                 outWb.SaveAs(outputPath);
