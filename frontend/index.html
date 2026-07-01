@@ -2,13 +2,146 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8"/>
-    <title>Karza Engine UI Frame</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Karza Deep Consolidation Engine</title>
     <style>
-        body { font-family: system-ui, sans-serif; background: #F1F5F9; margin: 0; padding: 20px; }
-        h1 { color: #0F172A; font-size: 16px; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #F1F5F9; padding: 20px; color: #334155; }
+        
+        /* Header Panel */
+        .header-panel { background-color: #0F172A; border-radius: 6px; padding: 20px; margin-bottom: 20px; }
+        .header-title { color: #38BDF8; font-size: 18px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .header-desc { color: #94A3B8; font-size: 12px; margin-top: 6px; }
+        .header-git { color: #64748B; font-size: 11px; margin-top: 4px; font-style: italic; }
+
+        /* Path Pickers */
+        .input-group { margin-bottom: 15px; }
+        .input-label { font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 6px; display: block; }
+        .picker-grid { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+        .picker-textbox { width: 100%; padding: 10px 12px; background: #FFFFFF; border: 1px solid #CBD5E1; border-radius: 4px; font-size: 12px; color: #0F172A; outline: none; }
+        .picker-btn { background-color: #E2E8F0; border: 1px solid #CBD5E1; border-radius: 4px; color: #334155; padding: 0 15px; font-size: 12px; font-weight: 600; cursor: pointer; height: 36px; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+        .picker-btn:hover { background-color: #CBD5E1; }
+
+        /* Action Matrix Layer */
+        .execution-grid { display: grid; grid-template-columns: 1fr auto; gap: 25px; margin: 5px 0 20px 0; align-items: center; }
+        .status-container { display: flex; flex-direction: column; }
+        .status-label { font-size: 11px; font-weight: 600; color: #475569; margin-bottom: 5px; }
+        .progress-bar { width: 100%; height: 12px; background-color: #E2E8F0; border-radius: 6px; overflow: hidden; position: relative; margin-bottom: 12px; }
+        .progress-fill-extract { height: 100%; width: 0%; background-color: #0EA5E9; transition: width 0.1s ease; }
+        .progress-fill-compile { height: 100%; width: 0%; background-color: #D946EF; transition: width 0.1s ease; }
+        
+        .execute-btn { background-color: #0EA5E9; color: #FFFFFF; border: none; border-radius: 4px; padding: 0 35px; font-size: 14px; font-weight: 700; cursor: pointer; height: 65px; transition: background 0.15s; }
+        .execute-btn:hover { background-color: #0284C7; }
+        .execute-btn:disabled { background-color: #94A3B8; cursor: not-allowed; }
+
+        /* Terminal Console */
+        .console-box { background-color: #0F172A; border-radius: 4px; padding: 12px; height: 260px; overflow-y: auto; font-family: 'Consolas', 'Courier New', monospace; font-size: 12px; color: #E2E8F0; line-height: 1.5; border: 1px solid #CBD5E1; }
+        .console-header { font-size: 11px; font-weight: 700; color: #475569; margin-bottom: 5px; text-transform: uppercase; }
     </style>
 </head>
 <body>
-    <h1>System Porting In Progress: UI Target Ready.</h1>
+
+    <div class="header-panel">
+        <div class="header-title">Karza Deep Consolidation Engine v2026.09</div>
+        <div class="header-desc">Enterprise Data Aggregation, Subledger Matrixing & Revenue Reconciliation Engine</div>
+        <div class="header-git">Github: pratikvoice-web/Karza-Consolidation-Tool</div>
+    </div>
+
+    <div class="input-group">
+        <label class="input-label">Source Directory Path (Raw Karza State Reports)</label>
+        <div class="picker-grid">
+            <input type="text" id="txtSourcePath" class="picker-textbox" readonly placeholder="Select source directory allocation..."/>
+            <button class="picker-btn" onclick="browseSource()">Browse Folder</button>
+        </div>
+    </div>
+
+    <div class="input-group">
+        <label class="input-label">Destination Output Directory Path (Consolidated Ledger Export Destination)</label>
+        <div class="picker-grid">
+            <input type="text" id="txtDestPath" class="picker-textbox" readonly placeholder="Select export destination matrix allocation..."/>
+            <button class="picker-btn" onclick="browseDest()">Browse Folder</button>
+        </div>
+    </div>
+
+    <div class="execution-grid">
+        <div class="status-container">
+            <div id="lblExtractStatus" class="status-label">Extraction Matrix Layer: Execution Idle</div>
+            <div class="progress-bar">
+                <div id="progressExtract" class="progress-fill-extract"></div>
+            </div>
+            
+            <div id="lblCompileStatus" class="status-label">Analytical Ledger Compilation: Execution Idle</div>
+            <div class="progress-bar" style="margin-bottom: 0;">
+                <div id="progressCompile" class="progress-fill-compile"></div>
+            </div>
+        </div>
+        <button id="btnRun" class="execute-btn" onclick="executeEngine()">Execute Engine</button>
+    </div>
+
+    <div class="console-header">Live Process Pipeline Audit Log</div>
+    <div id="txtLog" class="console-box"></div>
+
+    <script>
+        function logLine(message) {
+            const consoleBox = document.getElementById("txtLog");
+            const timestamp = new Date().toTimeString().split(' ')[0];
+            consoleBox.innerHTML += `[${timestamp}] ${message}<br/>`;
+            consoleBox.scrollTop = consoleBox.scrollHeight;
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            logLine("System Initialization Status Matrix Configured. Ready.");
+            
+            // Wire up the live runtime events from Go
+            window.runtime.EventsOn("log", (msg) => {
+                logLine(msg);
+            });
+
+            window.runtime.EventsOn("extract", (data) => {
+                document.getElementById("progressExtract").style.width = data.val + "%";
+                document.getElementById("lblExtractStatus").innerText = data.txt;
+            });
+
+            window.runtime.EventsOn("compile", (data) => {
+                document.getElementById("progressCompile").style.width = data.val + "%";
+                document.getElementById("lblCompileStatus").innerText = data.txt;
+            });
+        });
+
+        function browseSource() {
+            window.go.main.App.SelectDirectory().then((path) => {
+                if (path) document.getElementById("txtSourcePath").value = path;
+            });
+        }
+
+        function browseDest() {
+            window.go.main.App.SelectDirectory().then((path) => {
+                if (path) document.getElementById("txtDestPath").value = path;
+            });
+        }
+
+        function executeEngine() {
+            const src = document.getElementById("txtSourcePath").value;
+            const dest = document.getElementById("txtDestPath").value;
+
+            if (!src || !dest) {
+                alert("Directory configuration error. Source and Destination parameters must be set.");
+                return;
+            }
+
+            document.getElementById("btnRun").disabled = true;
+            document.getElementById("txtLog").innerHTML = "";
+            logLine("Executing processing pipeline thread allocations...");
+
+            window.go.main.App.ExecuteConsolidation(src, dest).then((result) => {
+                if (result === "SUCCESS") {
+                    logLine("SUCCESS: All Operations Cleared safely.");
+                } else {
+                    logLine("FATAL SYSTEM EXCEPTION: " + result);
+                }
+                document.getElementById("btnRun").disabled = false;
+            });
+        }
+    </script>
 </body>
 </html>
