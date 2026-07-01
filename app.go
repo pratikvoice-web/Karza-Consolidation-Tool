@@ -321,7 +321,7 @@ func (a *App) ExecuteConsolidation(inputFolder, outputFolder string) string {
 								if blankStreak > 50 { break }
 								continue
 							}
-							blankStreak = 0;
+							blankStreak = 0
 
 							if strings.Contains(strings.ToLower(serial), "total") || strings.Contains(strings.ToLower(cp), "total") || strings.Contains(strings.ToLower(cn), "total") {
 								continue
@@ -361,7 +361,7 @@ func (a *App) ExecuteConsolidation(inputFolder, outputFolder string) string {
 
 			for m, d := range fileMonths {
 				summaryData = append(summaryData, SummaryRecord{Month: m, State: stHead, Type: "Customer", GrossTaxable: d.GrossTaxable, GrossInvoice: d.GrossInvoice, InternalTaxable: d.InternalTaxableCustomer, InternalInvoice: d.InternalInvoiceCustomer, IsFallback: d.IsFallback})
-				summaryData.Add(SummaryRecord{Month: m, State: stHead, Type: "Supplier", GrossTaxable: d.GrossTaxable, GrossInvoice: d.GrossInvoice, InternalTaxable: d.InternalTaxableSupplier, InternalInvoice: d.InternalInvoiceSupplier, IsFallback: d.IsFallback})
+				summaryData = append(summaryData, SummaryRecord{Month: m, State: stHead, Type: "Supplier", GrossTaxable: d.GrossTaxable, GrossInvoice: d.GrossInvoice, InternalTaxable: d.InternalTaxableSupplier, InternalInvoice: d.InternalInvoiceSupplier, IsFallback: d.IsFallback})
 			}
 		}
 
@@ -378,7 +378,6 @@ func (a *App) ExecuteConsolidation(inputFolder, outputFolder string) string {
 			}
 		}
 
-		// Chronological Processing Sorting
 		monthSet := make(map[string]bool)
 		for _, s := range summaryData { monthSet[s.Month] = true }
 		for _, m := range matrixData { monthSet[m.Month] = true }
@@ -396,7 +395,6 @@ func (a *App) ExecuteConsolidation(inputFolder, outputFolder string) string {
 		for st := range stateSet { uniqueStates = append(uniqueStates, st) }
 		sort.Strings(uniqueStates)
 
-		// Financial Year Aggregation Array Mapping
 		fyMap := make(map[string][]string)
 		for _, m := range uniqueMonths {
 			fy := GetFinancialYear(m)
@@ -409,7 +407,7 @@ func (a *App) ExecuteConsolidation(inputFolder, outputFolder string) string {
 		outWb := excelize.NewFile()
 		_ = outWb.DeleteSheet("Sheet1")
 
-		wsIndex, _ := outWb.NewSheet("Index")
+		_, _ = outWb.NewSheet("Index")
 		_ = outWb.SetCellValue("Index", "A1", "Consolidated GST Karza")
 		_ = outWb.SetCellValue("Index", "A3", "Entity Name:")
 		_ = outWb.SetCellValue("Index", "B3", currentName)
@@ -429,7 +427,6 @@ func (a *App) ExecuteConsolidation(inputFolder, outputFolder string) string {
 			sheetCount++
 		}
 
-		// Compile summary configuration loops
 		netConfigs := []struct {
 			SheetName string; Target string; IsTax bool; Labels []string
 		}{
@@ -460,7 +457,6 @@ func (a *App) ExecuteConsolidation(inputFolder, outputFolder string) string {
 					cCol++
 				}
 				_ = outWb.SetCellValue(cfg.SheetName, fmt.Sprintf("%s%d", GetColumnLetter(cCol), rowTracker+1), "Total")
-				maxColL := GetColumnLetter(cCol)
 
 				dataRow := rowTracker + 2
 				for _, fy := range uniqueFYs {
@@ -487,18 +483,22 @@ func (a *App) ExecuteConsolidation(inputFolder, outputFolder string) string {
 							_ = outWb.SetCellStyle(cfg.SheetName, cellRef, cellRef, numStyle)
 							colSub++
 						}
-						_ = outWb.SetCellFormula(cfg.SheetName, fmt.Sprintf("%s%d", GetColumnLetter(colSub), dataRow), fmt.Sprintf("=SUM(B%d:%s%d)", dataRow, GetColumnLetter(colSub-1), dataRow))
-						_ = outWb.SetCellStyle(cfg.SheetName, fmt.Sprintf("%s%d", GetColumnLetter(colSub), dataRow), fmt.Sprintf("%s%d", GetColumnLetter(colSub), dataRow), numStyle)
+						
+						rowTotCell := fmt.Sprintf("%s%d", GetColumnLetter(colSub), dataRow)
+						_ = outWb.SetCellFormula(cfg.SheetName, rowTotCell, fmt.Sprintf("=SUM(B%d:%s%d)", dataRow, GetColumnLetter(colSub-1), dataRow))
+						_ = outWb.SetCellStyle(cfg.SheetName, rowTotCell, rowTotCell, numStyle)
 						dataRow++
 					}
 
 					if dataRow > startGroup {
-						_ = outWb.SetRowOutlineLevel(cfg.SheetName, startGroup, 1)
-						_ = outWb.SetRowOutlineLevel(cfg.SheetName, dataRow-1, 1)
-						for c := 2; c <= colSub; c++ {
+						for r := startGroup; r <= dataRow-1; r++ {
+							_ = outWb.SetRowOutlineLevel(cfg.SheetName, r, 1)
+						}
+						for c := 2; c <= cCol; c++ {
 							cL := GetColumnLetter(c)
-							_ = outWb.SetCellFormula(cfg.SheetName, fmt.Sprintf("%s%d", cL, fyRow), fmt.Sprintf("=SUM(%s%d:%s%d)", cL, startGroup, cL, dataRow-1))
-							_ = outWb.SetCellStyle(cfg.SheetName, fmt.Sprintf("%s%d", cL, fyRow), fmt.Sprintf("%s%d", cL, fyRow), numStyle)
+							targetCell := fmt.Sprintf("%s%d", cL, fyRow)
+							_ = outWb.SetCellFormula(cfg.SheetName, targetCell, fmt.Sprintf("=SUM(%s%d:%s%d)", cL, startGroup, cL, dataRow-1))
+							_ = outWb.SetCellStyle(cfg.SheetName, targetCell, targetCell, numStyle)
 						}
 					}
 				}
@@ -506,7 +506,6 @@ func (a *App) ExecuteConsolidation(inputFolder, outputFolder string) string {
 			}
 		}
 
-		// Compile subledger configurations loops
 		matrixConfigs := []struct{ SheetName, Target, ValType string }{
 			{"Detailed_Customer_Taxable", "Customer", "T"},
 			{"Detailed_Customer_Invoice", "Customer", "I"},
@@ -527,16 +526,25 @@ func (a *App) ExecuteConsolidation(inputFolder, outputFolder string) string {
 			fyTotalCols := make(map[string]string)
 			for _, fy := range uniqueFYs {
 				startCol := colIdx
-				for range fyMap[fy] { colIdx++ }
+				for _, m := range fyMap[fy] {
+					_ = outWb.SetCellValue(mCfg.SheetName, fmt.Sprintf("%s2", GetColumnLetter(colIdx)), m)
+					colIdx++
+				}
 				
 				fyTotL := GetColumnLetter(colIdx)
 				_ = outWb.SetCellValue(mCfg.SheetName, fmt.Sprintf("%s2", fyTotL), fmt.Sprintf("%s Total", fy))
 				fyTotalCols[fy] = fyTotL
+				
+				_ = outWb.SetCellValue(mCfg.SheetName, fmt.Sprintf("%s1", GetColumnLetter(startCol)), fy)
+				_ = outWb.MergeCell(mCfg.SheetName, fmt.Sprintf("%s1", GetColumnLetter(startCol)), fmt.Sprintf("%s1", GetColumnLetter(colIdx)))
+				
+				for c := startCol; c < colIdx; c++ {
+					_ = outWb.SetColOutlineLevel(mCfg.SheetName, GetColumnLetter(c), 1)
+				}
 				colIdx++
 			}
 			_ = outWb.SetCellValue(mCfg.SheetName, fmt.Sprintf("%s2", GetColumnLetter(colIdx)), "Grand Total")
 
-			// Structural mapping grouping lines
 			panGroups := make(map[string][]MatrixRecord)
 			for _, m := range matrixData {
 				if m.Type == mCfg.Target { panGroups[m.PAN] = append(panGroups[m.PAN], m) }
@@ -559,7 +567,6 @@ func (a *App) ExecuteConsolidation(inputFolder, outputFolder string) string {
 				_ = outWb.SetCellValue(mCfg.SheetName, fmt.Sprintf("A%d", dataRow), first.Name)
 				_ = outWb.SetCellValue(mCfg.SheetName, fmt.Sprintf("B%d", dataRow), rp.Key)
 
-				// Value aggregation arrays mapping formulas
 				parentRow := dataRow
 				dataRow++
 
@@ -572,53 +579,77 @@ func (a *App) ExecuteConsolidation(inputFolder, outputFolder string) string {
 					cCol := 3
 					var crossFyFormula []string
 					for _, fy := range uniqueFYs {
-						sColL := GetColumnLetter(cCol)
+						sCol := cCol
 						for _, m := range fyMap[fy] {
 							vSum := 0.0
 							for _, item := range stItems { if item.Month == m { if mCfg.ValType == "T" { vSum += item.Taxable } else { vSum += item.Invoice } } }
 							if vSum > 0 {
-								_ = outWb.SetCellValue(mCfg.SheetName, fmt.Sprintf("%s%d", GetColumnLetter(cCol), dataRow), vSum)
-								_ = outWb.SetCellStyle(mCfg.SheetName, fmt.Sprintf("%s%d", GetColumnLetter(cCol), dataRow), fmt.Sprintf("%s%d", GetColumnLetter(cCol), dataRow), numStyle)
+								cellRef := fmt.Sprintf("%s%d", GetColumnLetter(cCol), dataRow)
+								_ = outWb.SetCellValue(mCfg.SheetName, cellRef, vSum)
+								_ = outWb.SetCellStyle(mCfg.SheetName, cellRef, cellRef, numStyle)
 							}
 							cCol++
 						}
-						_ = outWb.SetCellFormula(mCfg.SheetName, fmt.Sprintf("%s%d", GetColumnLetter(cCol), dataRow), fmt.Sprintf("=SUM(%s%d:%s%d)", sColL, dataRow, GetColumnLetter(cCol-1), dataRow))
-						_ = outWb.SetCellStyle(mCfg.SheetName, fmt.Sprintf("%s%d", GetColumnLetter(cCol), dataRow), fmt.Sprintf("%s%d", GetColumnLetter(cCol), dataRow), numStyle)
-						crossFyFormula = append(crossFyFormula, fmt.Sprintf("%s%d", GetColumnLetter(cCol), dataRow))
-						colIdx = cCol
+						fyCellRef := fmt.Sprintf("%s%d", GetColumnLetter(cCol), dataRow)
+						_ = outWb.SetCellFormula(mCfg.SheetName, fyCellRef, fmt.Sprintf("=SUM(%s%d:%s%d)", GetColumnLetter(sCol), dataRow, GetColumnLetter(cCol-1), dataRow))
+						_ = outWb.SetCellStyle(mCfg.SheetName, fyCellRef, fyCellRef, numStyle)
+						crossFyFormula = append(crossFyFormula, fyCellRef)
 						cCol++
 					}
-					_ = outWb.SetCellFormula(mCfg.SheetName, fmt.Sprintf("%s%d", GetColumnLetter(cCol), dataRow), "="+strings.Join(crossFyFormula, "+"))
-					_ = outWb.SetCellStyle(mCfg.SheetName, fmt.Sprintf("%s%d", GetColumnLetter(cCol), dataRow), fmt.Sprintf("%s%d", GetColumnLetter(c)(colIdx)), numStyle);
-					dataRow++;
+					
+					grandCellRef := fmt.Sprintf("%s%d", GetColumnLetter(cCol), dataRow)
+					_ = outWb.SetCellFormula(mCfg.SheetName, grandCellRef, "="+strings.Join(crossFyFormula, "+"))
+					_ = outWb.SetCellStyle(mCfg.SheetName, grandCellRef, grandCellRef, numStyle)
+					dataRow++
 				}
-				_ = ws.Rows(parentRow + 1, dataRow - 1).Group();
 				
-				// Apply Rollup Parent Formulas
+				for r := parentRow + 1; r <= dataRow-1; r++ {
+					_ = outWb.SetRowOutlineLevel(mCfg.SheetName, r, 1)
+				}
+				
 				for c := 3; c <= colIdx; c++ {
-					string colL = GetColLetter(c);
-					ws.Cell(parentRow, c).FormulaA1 = $"=SUM({colLetter}{parentRow + 1}:{colLetter}{dataRow - 1})";
+					colL := GetColumnLetter(c)
+					parentCell := fmt.Sprintf("%s%d", colL, parentRow)
+					_ = outWb.SetCellFormula(mCfg.SheetName, parentCell, fmt.Sprintf("=SUM(%s%d:%s%d)", colL, parentRow+1, colL, dataRow-1))
+					_ = outWb.SetCellStyle(mCfg.SheetName, parentCell, parentCell, numStyle)
 				}
 			}
-            ws.Columns().AdjustToContents();
-        }
+		}
 
-        var wsGlossary = outWb.Worksheets.Add("Audit_Glossary");
-        AddToIndex("Audit_Glossary", "Reporting Color Key Metrics Metadata");
-        wsIndex.Columns().AdjustToContents();
+		runtime.EventsEmit(a.ctx, "log", "Finalizing formatting properties...")
+		
+		_, _ = outWb.NewSheet("Audit_Glossary")
+		addToIndex("Audit_Glossary", "Reporting Color Key Metrics Metadata")
 
-        wsGlossary.Cell("A1").SetValue("Reporting Ledger Color Key").Style.Font.SetBold(true);
-        wsGlossary.Cell("A3").Style.Fill.BackgroundColor = XLColor.FromHtml("#FFF2CC");
-        wsGlossary.Cell("B3").SetValue("Related Party Configuration / Subledger Identifiers");
-        wsGlossary.Cell("A4").Style.Fill.BackgroundColor = XLColor.FromHtml("#E1E1E1");
-        wsGlossary.Cell("B4").SetValue("Third-Party Verified Operational Vectors");
-        wsGlossary.Columns().AdjustToContents();
+		boldStyle, _ := outWb.NewStyle(&excelize.Style{Font: &excelize.Font{Bold: true}})
+		fillYellow, _ := outWb.NewStyle(&excelize.Style{Fill: excelize.Fill{Type: "pattern", Color: []string{"#FFF2CC"}, Pattern: 1}})
+		fillGray, _ := outWb.NewStyle(&excelize.Style{Fill: excelize.Fill{Type: "pattern", Color: []string{"#E1E1E1"}, Pattern: 1}})
+		italicStyle, _ := outWb.NewStyle(&excelize.Style{Font: &excelize.Font{Italic: true}, Fill: excelize.Fill{Type: "pattern", Color: []string{"#FFF2CC"}, Pattern: 1}})
 
-        string outputName = $"CONSOLIDATED_{currentPan}_{currentName}.xlsx";
-        string finalPath = Path.Combine(outputFolder, outputName);
-        outWb.SaveAs(outputPath);
-        prog.Report(new UiProgressReport("LOG", 100, $"Export Complete: {outputName}"));
+		_ = outWb.SetCellValue("Audit_Glossary", "A1", "Reporting Ledger Color Key")
+		_ = outWb.SetCellStyle("Audit_Glossary", "A1", "A1", boldStyle)
+		
+		_ = outWb.SetCellStyle("Audit_Glossary", "A3", "A3", fillYellow)
+		_ = outWb.SetCellValue("Audit_Glossary", "B3", "Related Party Configuration / Subledger Identifiers")
+		
+		_ = outWb.SetCellStyle("Audit_Glossary", "A4", "A4", fillGray)
+		_ = outWb.SetCellValue("Audit_Glossary", "B4", "Third-Party Verified Operational Vectors")
+		
+		_ = outWb.SetCellStyle("Audit_Glossary", "A5", "A5", italicStyle)
+		_ = outWb.SetCellValue("Audit_Glossary", "B5", "GSTR1 Operational Fallback Values (Triggered when explicit GSTR3B data is filed as missing or 0)")
 
-        return;
-    }
+		_ = outWb.SetColWidth("Audit_Glossary", "A", "A", 5)
+		_ = outWb.SetColWidth("Audit_Glossary", "B", "B", 100)
+		_ = outWb.SetColWidth("Index", "A", "C", 40)
+
+		outputName := fmt.Sprintf("CONSOLIDATED_%s_%s.xlsx", currentPan, currentName)
+		finalPath := filepath.Join(outputFolder, outputName)
+		
+		if err := outWb.SaveAs(finalPath); err != nil {
+			return fmt.Sprintf("Save failed: %v", err)
+		}
+		
+		runtime.EventsEmit(a.ctx, "log", fmt.Sprintf("Export Complete: %s", outputName))
+	}
+	return "SUCCESS"
 }
