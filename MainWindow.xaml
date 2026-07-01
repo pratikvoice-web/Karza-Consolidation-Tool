@@ -12,6 +12,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
+        <!-- Header Corporate Panel -->
         <Border Grid.Row="0" Background="#0F172A" CornerRadius="6" Padding="20" Margin="0,0,0,20">
             <StackPanel>
                 <TextBlock Text="KARZA DEEP CONSOLIDATION ENGINE v2029.10.0-main" Foreground="#38BDF8" FontSize="18" FontWeight="Bold"/>
@@ -20,6 +21,7 @@
             </StackPanel>
         </Border>
 
+        <!-- Dynamic Update Banner -->
         <Border x:Name="UpdateBanner" Grid.Row="1" Background="#FFFBEB" BorderBrush="#F59E0B" BorderThickness="1" CornerRadius="4" Padding="15,10" Margin="0,0,0,20" Visibility="Collapsed">
             <StackPanel>
                 <Grid>
@@ -39,6 +41,7 @@
             </StackPanel>
         </Border>
 
+        <!-- Interactive Directory Path Pickers -->
         <StackPanel Grid.Row="2" Margin="0,0,0,0">
             <TextBlock Text="Source Directory Path (Raw Karza State Reports)" FontSize="12" FontWeight="Bold" Foreground="#334155" Margin="0,0,0,6"/>
             <Grid Margin="0,0,0,15">
@@ -53,16 +56,15 @@
             <TextBlock Text="Destination Output Directory Path (Consolidated Ledger Export Destination)" FontSize="12" FontWeight="Bold" Foreground="#334155" Margin="0,0,0,6"/>
             <Grid Margin="0,0,0,15">
                 <Grid.ColumnDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBox x:Name="TxtDestPath" Grid.Column="0" Padding="10,8" VerticalContentAlignment="Center" Background="White" BorderBrush="#CBD5E1" FontSize="12"/>
                 <Button x:Name="BtnBrowseDest" Grid.Column="1" Content="Browse Folder" Padding="15,0" Margin="10,0,0,0" Click="BtnBrowseDest_Click" Background="#E2E8F0" BorderBrush="#CBD5E1" FontWeight="SemiBold"/>
             </Grid>
         </StackPanel>
 
+        <!-- Dynamic Tracking Metrics & Core Action Trigger -->
         <Grid Grid.Row="3" Margin="0,5,0,20">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
@@ -78,10 +80,12 @@
             <Button x:Name="BtnRun" Grid.Column="1" Content="Execute Engine" Padding="35,0" Margin="25,0,0,0" FontSize="14" FontWeight="Bold" Foreground="White" Background="#0EA5E9" BorderThickness="0" Click="BtnRun_Click" Height="65"/>
         </Grid>
 
+        <!-- Main Live Audit Terminal Console -->
         <GroupBox Grid.Row="4" Header="Live Process Pipeline Audit Log" FontSize="11" FontWeight="Bold" Foreground="#475569" Margin="0,0,0,15">
             <TextBox x:Name="TxtLog" IsReadOnly="True" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" Background="#0F172A" Foreground="#E2E8F0" FontFamily="Consolas" FontSize="12" Padding="12" Margin="0,5,0,0" BorderThickness="0"/>
         </GroupBox>
 
+        <!-- Post-Execution UI Feedback Panel -->
         <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,5">
             <Button x:Name="BtnOpenFolder" Content="Open Export Destination Location" Padding="15,10" Visibility="Collapsed" Click="BtnOpenFolder_Click" Background="#10B981" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
         </StackPanel>
