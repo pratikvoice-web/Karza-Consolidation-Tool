@@ -49,36 +49,46 @@ namespace KarzaConsolidator
                 using var client = new HttpClient();
                 client.DefaultRequestHeaders.Add("User-Agent", "Karza-Consolidator-AutoUpdater");
                 
-                string response = await client.GetStringAsync($"https://api.github.com/repos/{GithubRepository}/releases/latest");
+                // Fetch full history to scan past variant tags
+                string response = await client.GetStringAsync($"https://api.github.com/repos/{GithubRepository}/releases");
                 using var doc = JsonDocument.Parse(response);
                 
-                string remoteVersion = doc.RootElement.GetProperty("tag_name").GetString();
-                
-                if (!string.IsNullOrEmpty(remoteVersion) && remoteVersion != CurrentAppVersion)
+                foreach (var release in doc.RootElement.EnumerateArray())
                 {
-                    var assets = doc.RootElement.GetProperty("assets");
-                    foreach (var asset in assets.EnumerateArray())
+                    string tag = release.GetProperty("tag_name").GetString() ?? string.Empty;
+                    
+                    // Filter down to match main track variables only
+                    if (tag.EndsWith("-main", StringComparison.OrdinalIgnoreCase))
                     {
-                        if (asset.GetProperty("name").GetString().EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                        if (tag != CurrentAppVersion)
                         {
-                            _updateDownloadUrl = asset.GetProperty("browser_download_url").GetString();
-                            break;
-                        }
-                    }
+                            var assets = release.GetProperty("assets");
+                            foreach (var asset in assets.EnumerateArray())
+                            {
+                                string name = asset.GetProperty("name").GetString() ?? string.Empty;
+                                if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    _updateDownloadUrl = asset.GetProperty("browser_download_url").GetString() ?? string.Empty;
+                                    break;
+                                }
+                            }
 
-                    if (!string.IsNullOrEmpty(_updateDownloadUrl))
-                    {
-                        Dispatcher.Invoke(() => 
-                        {
-                            LblUpdateText.Text = $"A new version ({remoteVersion}) is available.";
-                            UpdateBanner.Visibility = Visibility.Visible;
-                        });
+                            if (!string.IsNullOrEmpty(_updateDownloadUrl))
+                            {
+                                Dispatcher.Invoke(() => 
+                                {
+                                    LblUpdateText.Text = $"A new standard version ({tag}) is available.";
+                                    UpdateBanner.Visibility = Visibility.Visible;
+                                });
+                            }
+                        }
+                        break; // Stop immediately once the newest main variant is evaluated
                     }
                 }
             }
             catch (Exception ex)
             {
-                Dispatcher.Invoke(() => LogLine($"[Telemetry] Remote version check bypassed: {ex.Message}"));
+                Dispatcher.Invoke(() => LogLine($"[Telemetry] Variant release check bypassed: {ex.Message}"));
             }
         }
 
@@ -92,7 +102,6 @@ namespace KarzaConsolidator
             BtnUpdateDismiss.IsEnabled = false;
             BtnRun.IsEnabled = false;
             
-            // Map visibility matrix for update tracking
             ProgressUpdate.Visibility = Visibility.Visible;
             ProgressUpdate.Value = 0;
 
@@ -434,7 +443,6 @@ del ""%~f0""";
                 string outputPath = Path.Combine(outputFolder, outputName);
                 using var outWb = new XLWorkbook();
 
-                // 1. Compile the Index Sheet
                 var wsIndex = outWb.Worksheets.Add("Index");
                 wsIndex.Cell("A1").SetValue("Consolidated GST Karza").Style.Font.SetBold(true).Font.SetFontSize(16);
                 wsIndex.Cell("A3").SetValue("Entity Name:").Style.Font.SetBold(true);
