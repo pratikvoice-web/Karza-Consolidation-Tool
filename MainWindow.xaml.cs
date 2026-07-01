@@ -15,7 +15,6 @@ namespace KarzaConsolidator
 {
     public partial class MainWindow : Window
     {
-        // Update Engine Directives
         private const string CurrentAppVersion = "v2026.09";
         private const string GithubRepository = "pratikvoice-web/Karza-Consolidation-Tool";
         private string _updateDownloadUrl = string.Empty;
@@ -43,7 +42,6 @@ namespace KarzaConsolidator
             _ = CheckForUpdatesAsync();
         }
 
-        // --- UPDATE ENGINE LOGIC ---
         private async Task CheckForUpdatesAsync()
         {
             try
@@ -86,32 +84,62 @@ namespace KarzaConsolidator
 
         private async void BtnUpdateNow_Click(object sender, RoutedEventArgs e)
         {
+            var userDecision = MessageBox.Show("The engine will download the package and execute an automated system swap. Ensure work vectors are committed.\n\nProceed with automated deployment handoff?", 
+                                               "Handoff Authorized", MessageBoxButton.YesNo, MessageBoxImage.Information);
+            if (userDecision != MessageBoxResult.Yes) return;
+
             BtnUpdateNow.IsEnabled = false;
-            BtnUpdateNow.Content = "Downloading...";
             BtnUpdateDismiss.IsEnabled = false;
             BtnRun.IsEnabled = false;
+            
+            // Map visibility matrix for update tracking
+            ProgressUpdate.Visibility = Visibility.Visible;
+            ProgressUpdate.Value = 0;
 
             try
             {
-                string currentExePath = Environment.ProcessPath;
+                string currentExePath = Environment.ProcessPath ?? throw new Exception("Unable to locate active executable thread origin path.");
                 string tempExePath = Path.Combine(Path.GetTempPath(), "KarzaConsolidator_Update.exe");
                 string updaterBatPath = Path.Combine(Path.GetTempPath(), "KarzaUpdater.bat");
 
                 using (var client = new HttpClient())
                 {
-                    using var stream = await client.GetStreamAsync(_updateDownloadUrl);
+                    using var response = await client.GetAsync(_updateDownloadUrl, HttpCompletionOption.ResponseHeadersRead);
+                    long? totalBytes = response.Content.Headers.ContentLength;
+
+                    using var contentStream = await response.Content.ReadAsStreamAsync();
                     using var fileStream = new FileStream(tempExePath, FileMode.Create, FileAccess.Write, FileShare.None);
-                    await stream.CopyToAsync(fileStream);
+                    
+                    var dataBuffer = new byte[16384];
+                    long totalBytesRead = 0;
+                    int bytesReadCount;
+
+                    while ((bytesReadCount = await contentStream.ReadAsync(dataBuffer, 0, dataBuffer.Length)) > 0)
+                    {
+                        await fileStream.WriteAsync(dataBuffer, 0, bytesReadCount);
+                        totalBytesRead += bytesReadCount;
+                        if (totalBytes.HasValue)
+                        {
+                            double currentPct = (double)totalBytesRead / totalBytes.Value * 100;
+                            ProgressUpdate.Value = currentPct;
+                            BtnUpdateNow.Content = $"{currentPct:F0}%";
+                        }
+                    }
                 }
 
                 string batScript = $@"@echo off
-timeout /t 2 /nobreak > NUL
-del ""{currentExePath}""
+echo Executing Background Processing Pipeline Frame Swap...
+timeout /t 3 /nobreak > NUL
+taskkill /f /im ""{Path.GetFileName(currentExePath)}"" > NUL 2>&1
+del /f /q ""{currentExePath}""
 move /y ""{tempExePath}"" ""{currentExePath}""
 start """" ""{currentExePath}""
 del ""%~f0""";
 
                 File.WriteAllText(updaterBatPath, batScript);
+
+                MessageBox.Show("Download segment verified successfully. The tool will close down to commit file overwrites and restart instantly.", 
+                                "System Swap Staged", MessageBoxButton.OK, MessageBoxImage.Information);
 
                 Process.Start(new ProcessStartInfo
                 {
@@ -125,9 +153,13 @@ del ""%~f0""";
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Update transfer failed. Please download the latest version manually.\n\nError: {ex.Message}", "Update Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Update execution cycle interrupted: {ex.Message}", "Deployment Failure", MessageBoxButton.OK, MessageBoxImage.Error);
                 UpdateBanner.Visibility = Visibility.Collapsed;
+                ProgressUpdate.Visibility = Visibility.Collapsed;
                 BtnRun.IsEnabled = true;
+                BtnUpdateNow.IsEnabled = true;
+                BtnUpdateNow.Content = "Update Now";
+                BtnUpdateDismiss.IsEnabled = true;
             }
         }
 
@@ -136,7 +168,6 @@ del ""%~f0""";
             UpdateBanner.Visibility = Visibility.Collapsed;
         }
 
-        // --- STANDARD APP LOGIC ---
         private void BtnBrowseSource_Click(object sender, RoutedEventArgs e)
         {
             var dialog = new OpenFolderDialog { InitialDirectory = TxtSourcePath.Text };
@@ -699,7 +730,6 @@ del ""%~f0""";
         }
     }
 
-    // --- Core Architecture Domain Models ---
     public class FileMetadata(string file, string pan, string name, string gstin, string state, string suffix)
     {
         public string FilePath { get; set; } = file;
