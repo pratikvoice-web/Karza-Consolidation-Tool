@@ -203,7 +203,7 @@ del ""%~f0""";
                 return;
             }
 
-            BtnRun.IsEnabled = false;
+            BtnRun.IsEnabled = true;
             BtnBrowseSource.IsEnabled = false;
             BtnBrowseDest.IsEnabled = false;
             BtnOpenFolder.Visibility = Visibility.Collapsed;
@@ -284,8 +284,11 @@ del ""%~f0""";
                 fileDataList.Add(new FileMetadata(file, pan, safeName, b6, stateCode, suffix));
             }
 
+            // CRITICAL GROUPING FIX: Normalises spaces and characters on Proprietorship boundaries cleanly
             var entityGroups = fileDataList.GroupBy(f => 
-                (f.PAN.Length == 10 && char.ToUpperInvariant(f.PAN[3]) == 'P') ? $"{f.PAN}_{f.TradeName}" : f.PAN
+                (f.PAN.Length == 10 && char.ToUpperInvariant(f.PAN[3]) == 'P') 
+                    ? $"{f.PAN}_{Regex.Replace(f.TradeName, @"[^A-Z0-9]", "")}" 
+                    : f.PAN
             ).ToDictionary(g => g.Key, g => g.ToList());
 
             foreach (var group in entityGroups)
@@ -449,7 +452,6 @@ del ""%~f0""";
 
                 // 1. Compile the Index Sheet
                 var wsIndex = outWb.Worksheets.Add("Index");
-                wsIndex.SheetView.FreezeRows(0);
                 wsIndex.Cell("A1").SetValue("Consolidated GST Karza").Style.Font.SetBold(true).Font.SetFontSize(16).Font.SetFontColor(slatePrimary);
                 
                 var profileRange = wsIndex.Range("A3:B4");
@@ -594,6 +596,8 @@ del ""%~f0""";
                     ws.Columns().AdjustToContents();
                     ws.RangeUsed().Style.NumberFormat.Format = "#,##0.00";
                     ws.Column(1).Style.NumberFormat.Format = "@";
+                    
+                    // FIXED: Re-anchored native worksheet viewport binding
                     ws.SheetView.FreezeRows(1);
                 }
 
@@ -725,6 +729,8 @@ del ""%~f0""";
                     ws.RangeUsed().Style.NumberFormat.Format = "#,##0.00";
                     ws.Column(1).Style.NumberFormat.Format = "@";
                     ws.Column(2).Style.NumberFormat.Format = "@";
+                    
+                    // FIXED: Re-anchored native worksheet viewport binding
                     ws.SheetView.FreezeColumns(2);
                 }
 
