@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
@@ -15,10 +13,6 @@ namespace KarzaConsolidator
 {
     public partial class MainWindow : Window
     {
-        private const string CurrentAppVersion = "v2029.10.0-main";
-        private const string GithubRepository = "pratikvoice-web/Karza-Consolidation-Tool";
-        private string _updateDownloadUrl = string.Empty;
-
         private static readonly Dictionary<string, string> StateMap = new()
         {
             { "01", "J&K" }, { "02", "HP" }, { "03", "Punjab" }, { "04", "Chandigarh" }, { "05", "Uttarakhand" },
@@ -37,141 +31,7 @@ namespace KarzaConsolidator
             string runningFolder = AppDomain.CurrentDomain.BaseDirectory;
             TxtSourcePath.Text = runningFolder;
             TxtDestPath.Text = runningFolder;
-            LogLine("System Initialization Status Matrix Configured. Ready.");
-            
-            _ = CheckForUpdatesAsync();
-        }
-
-        private async Task CheckForUpdatesAsync()
-        {
-            try
-            {
-                using var client = new HttpClient();
-                client.DefaultRequestHeaders.Add("User-Agent", "Karza-Consolidator-AutoUpdater");
-                
-                string response = await client.GetStringAsync($"https://api.github.com/repos/{GithubRepository}/releases");
-                using var doc = JsonDocument.Parse(response);
-                
-                foreach (var release in doc.RootElement.EnumerateArray())
-                {
-                    string tag = release.GetProperty("tag_name").GetString() ?? string.Empty;
-                    
-                    if (tag.EndsWith("-main", StringComparison.OrdinalIgnoreCase))
-                    {
-                        if (tag != CurrentAppVersion)
-                        {
-                            var assets = release.GetProperty("assets");
-                            foreach (var asset in assets.EnumerateArray())
-                            {
-                                string name = asset.GetProperty("name").GetString() ?? string.Empty;
-                                if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-                                {
-                                    _updateDownloadUrl = asset.GetProperty("browser_download_url").GetString() ?? string.Empty;
-                                    break;
-                                }
-                            }
-
-                            if (!string.IsNullOrEmpty(_updateDownloadUrl))
-                            {
-                                Dispatcher.Invoke(() => 
-                                {
-                                    LblUpdateText.Text = $"A new standard version ({tag}) is available.";
-                                    UpdateBanner.Visibility = Visibility.Visible;
-                                });
-                            }
-                        }
-                        break; 
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Dispatcher.Invoke(() => LogLine($"[Telemetry] Variant release check bypassed: {ex.Message}"));
-            }
-        }
-
-        private async void BtnUpdateNow_Click(object sender, RoutedEventArgs e)
-        {
-            var userDecision = MessageBox.Show("The engine will download the package and execute an automated system swap. Ensure work vectors are committed.\n\nProceed with automated deployment handoff?", 
-                                               "Handoff Authorized", MessageBoxButton.YesNo, MessageBoxImage.Information);
-            if (userDecision != MessageBoxResult.Yes) return;
-
-            BtnUpdateNow.IsEnabled = false;
-            BtnUpdateDismiss.IsEnabled = false;
-            BtnRun.IsEnabled = false;
-            ProgressUpdate.Visibility = Visibility.Visible;
-            ProgressUpdate.Value = 0;
-
-            try
-            {
-                string currentExePath = Environment.ProcessPath ?? throw new Exception("Unable to locate active executable thread origin path.");
-                string tempExePath = Path.Combine(Path.GetTempPath(), "KarzaConsolidator_Update.exe");
-                string updaterBatPath = Path.Combine(Path.GetTempPath(), "KarzaUpdater.bat");
-
-                using (var client = new HttpClient())
-                {
-                    using var response = await client.GetAsync(_updateDownloadUrl, HttpCompletionOption.ResponseHeadersRead);
-                    long? totalBytes = response.Content.Headers.ContentLength;
-
-                    using var contentStream = await response.Content.ReadAsStreamAsync();
-                    using var fileStream = new FileStream(tempExePath, FileMode.Create, FileAccess.Write, FileShare.None);
-                    
-                    var dataBuffer = new byte[16384];
-                    long totalBytesRead = 0;
-                    int bytesReadCount;
-
-                    while ((bytesReadCount = await contentStream.ReadAsync(dataBuffer, 0, dataBuffer.Length)) > 0)
-                    {
-                        await fileStream.WriteAsync(dataBuffer, 0, bytesReadCount);
-                        totalBytesRead += bytesReadCount;
-                        if (totalBytes.HasValue)
-                        {
-                            double currentPct = (double)totalBytesRead / totalBytes.Value * 100;
-                            ProgressUpdate.Value = currentPct;
-                            BtnUpdateNow.Content = $"{currentPct:F0}%";
-                        }
-                    }
-                }
-
-                string batScript = $@"@echo off
-echo Executing Background Processing Pipeline Frame Swap...
-timeout /t 3 /nobreak > NUL
-taskkill /f /im ""{Path.GetFileName(currentExePath)}"" > NUL 2>&1
-del /f /q ""{currentExePath}""
-move /y ""{tempExePath}"" ""{currentExePath}""
-start """" ""{currentExePath}""
-del ""%~f0""";
-
-                File.WriteAllText(updaterBatPath, batScript);
-
-                MessageBox.Show("Download segment verified successfully. The tool will close down to commit file overwrites and restart instantly.", 
-                                "System Swap Staged", MessageBoxButton.OK, MessageBoxImage.Information);
-
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = updaterBatPath,
-                    CreateNoWindow = true,
-                    WindowStyle = ProcessWindowStyle.Hidden,
-                    UseShellExecute = true
-                });
-
-                Environment.Exit(0);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Update execution cycle interrupted: {ex.Message}", "Deployment Failure", MessageBoxButton.OK, MessageBoxImage.Error);
-                UpdateBanner.Visibility = Visibility.Collapsed;
-                ProgressUpdate.Visibility = Visibility.Collapsed;
-                BtnRun.IsEnabled = true;
-                BtnUpdateNow.IsEnabled = true;
-                BtnUpdateNow.Content = "Update Now";
-                BtnUpdateDismiss.IsEnabled = true;
-            }
-        }
-
-        private void BtnUpdateDismiss_Click(object sender, RoutedEventArgs e)
-        {
-            UpdateBanner.Visibility = Visibility.Collapsed;
+            LogLine("Standalone Consolidation Matrix Configured. Ready.");
         }
 
         private void BtnBrowseSource_Click(object sender, RoutedEventArgs e)
@@ -203,7 +63,7 @@ del ""%~f0""";
                 return;
             }
 
-            BtnRun.IsEnabled = true;
+            BtnRun.IsEnabled = false;
             BtnBrowseSource.IsEnabled = false;
             BtnBrowseDest.IsEnabled = false;
             BtnOpenFolder.Visibility = Visibility.Collapsed;
@@ -284,7 +144,6 @@ del ""%~f0""";
                 fileDataList.Add(new FileMetadata(file, pan, safeName, b6, stateCode, suffix));
             }
 
-            // CRITICAL GROUPING FIX: Normalises spaces and characters on Proprietorship boundaries cleanly
             var entityGroups = fileDataList.GroupBy(f => 
                 (f.PAN.Length == 10 && char.ToUpperInvariant(f.PAN[3]) == 'P') 
                     ? $"{f.PAN}_{Regex.Replace(f.TradeName, @"[^A-Z0-9]", "")}" 
@@ -597,7 +456,6 @@ del ""%~f0""";
                     ws.RangeUsed().Style.NumberFormat.Format = "#,##0.00";
                     ws.Column(1).Style.NumberFormat.Format = "@";
                     
-                    // FIXED: Re-anchored native worksheet viewport binding
                     ws.SheetView.FreezeRows(1);
                 }
 
@@ -730,7 +588,6 @@ del ""%~f0""";
                     ws.Column(1).Style.NumberFormat.Format = "@";
                     ws.Column(2).Style.NumberFormat.Format = "@";
                     
-                    // FIXED: Re-anchored native worksheet viewport binding
                     ws.SheetView.FreezeColumns(2);
                 }
 
