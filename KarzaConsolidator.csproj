@@ -12,13 +12,15 @@
     <Authors>Pratik Pattanaik</Authors>
     <AssemblyTitle>Karza Deep Consolidation Engine</AssemblyTitle>
 
-    <!-- Single-File Deployment -->
+    <!-- Single-File Self-Contained Deployment -->
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
 
-    <!-- CrowdStrike EDR Mitigation Flags -->
+    <!-- Embed native dependencies directly inside the single executable -->
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+
+    <!-- Disable compression to keep binary entropy low and avoid heuristic flags -->
     <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
-    <IncludeNativeLibrariesForSelfExtract>false</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
   <ItemGroup>
